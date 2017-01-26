@@ -29,6 +29,44 @@ class PatchMaker:
 
         return [self._get_patch(array, x, y) for y in range(height) for x in range(width)]
 
+    def generate_get_next_patches(self, image, n):
+        array = _convert_to_array(image)
+        height, width = array.shape[:2]
+        if width < self.patch_size // 2 or height < self.patch_size // 2:
+            raise ValueError(
+                'IllegalArgumentError: patch_size(%d) is more than twice as big as height(%d) and width(%d).' % (
+                    self.patch_size, height, width))
+
+        patches = []
+        for y in range(height):
+            for x in range(width):
+                if len(patches) >= n:
+                    yield patches
+                    patches = []
+                patches.append(self._get_patch(array, x, y))
+
+        yield patches
+
+    def get_n_patches(self, image, x, y, n):
+        array = _convert_to_array(image)
+        height, width = array.shape[:2]
+        if width < self.patch_size // 2 or height < self.patch_size // 2:
+            raise ValueError(
+                'IllegalArgumentError: patch_size(%d) is more than twice as big as height(%d) and width(%d).' % (
+                    self.patch_size, height, width))
+        if n <= 0:
+            return []
+
+        patches = [None for _ in range(n)]
+        count = 0
+        for _y in range(y, height):
+            for _x in range(x, width):
+                if count == n:
+                    return patches
+                patches[count] = self._get_patch(array, _x, _y)
+                count += 1
+        return patches
+
     def get_patch(self, image, x, y):
         return self._get_patch(_convert_to_array(image), x, y)
 
