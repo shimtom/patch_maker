@@ -199,7 +199,7 @@ class PatchMaker:
         """
         return self._patch_size
 
-    def generate_patches(self, image):
+    def generate_patches(self, image, padding='MIRROR'):
         width, height = image.size
 
         if width < self.patch_size // 2 or height < self.patch_size // 2:
@@ -242,10 +242,10 @@ class PatchMaker:
             return np.flipud(self.get_patch(image, x, y))
 
     def get_rotated_patch(self, image, x, y, direction='r'):
-        if direction=='r':
-            np.fliplr(np.transpose(self.get_patch(image, x, y), axes=(1,0,2)))
-        elif direction=='l':
-            np.flipud(np.transpose(self.get_patch(image, x, y), axes=(1,0,2)))
+        if direction == 'r':
+            np.fliplr(np.transpose(self.get_patch(image, x, y), axes=(1, 0, 2)))
+        elif direction == 'l':
+            np.flipud(np.transpose(self.get_patch(image, x, y), axes=(1, 0, 2)))
 
     def get_n_patches(self, image, x, y, n):
         width, height = image.size
@@ -266,7 +266,7 @@ class PatchMaker:
         array = _convert_to_array(image)
         return np.fliplr(array)
 
-    def _get_patch(self, array, x, y):
+    def _get_patch(self, array, x, y, padding='MIRROR'):
         height, width = array.shape[:2]
         if width < self.patch_size // 2 or height < self.patch_size // 2:
             raise ValueError(
