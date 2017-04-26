@@ -46,6 +46,7 @@ class TestPatchMaker(TestCase):
                         self.assertEqual(patch.mode, test_image.mode)
                         self.assertEqual(patch, Image.fromarray(array))
                         self.assertTrue(np.array_equal(array, np.array(array)))
+                        # TODO: ピクセルごとに値の確認
 
         # 失敗を確認
         failure_test_points = [(-1, -1), (-1, 0), (0, -1)]
