@@ -180,6 +180,158 @@ class PatchMaker3D:
         return self._make_patch(patch_xy, patch_zx, patch_yz)
 
 
+def generate_patch(image, point, size, padding='MIRROR', to_image=True):
+    """画像の指定された座標からパッチを切り出す.
+    parameters:
+    returns:
+    """
+    _check_image(image)
+    _check_point(point, image.width, image.height)
+    _check_size(size, image.width, image.height)
+    _check_padding(padding)
+    _check_to_image(to_image)
+
+    patch = _generate_patch(np.array(image), point, size, padding=padding)
+    return Image.fromarray(patch) if to_image else patch
+
+
+def generate_patches(image, size, interval=1, padding='MIRROR', to_image=True):
+    """画像からパッチを連続して切り出すジェネレータ.
+    :param image: PIL.Image オブジェクト.元となる画像.
+    :param size: (width, height). パッチのサイズ.
+    :param interval: パッチを切り出す間隔
+    :param padding: 'MIRROR','SAME','VALID'のどれか.パッチのパディングの仕方.
+    :param to_image: パッチをPIL.Image オブジェクトに変換するか.Falseの場合,numpy.ndarrayオブジェクト
+    :return: パッチ.
+    """
+    _check_image(image)
+    _check_size(size, image.width, image.height)
+    _check_interval(interval)
+    _check_padding(padding)
+    _check_to_image(to_image)
+    width, height = image.size
+    array = np.array(image)
+
+    for i in range(0, width * height, interval):
+        x, y = i % width, i // width
+        patch = _generate_patch(array, (x, y), size, padding=padding)
+        yield Image.fromarray(patch) if to_image else patch
+
+def _check_image(image):
+    if not isinstance(image, Image):
+        raise ValueError('image must be PIL.Image object but %s.' % str(type(image)))
+
+def _check_point(point, width, height):
+    if not (isinstance(point, tuple) or isinstance(point, list)) or len(point) != 2:
+        raise ValueError('point must be 2 length tuple or list but %s' % str(point))
+    if not isinstance(point[0], int) or not isinstance(point[1], int) or not(0 <= point[0] < width) or not(0<= point[1] < height):
+        raise ValueError('invalid coordinate %s' % str(point))
+
+def _check_size(size, width, height):
+    if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
+        raise ValueError('size must be 2 length tuple or list but %s' % str(size))
+    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 < size[0] < width * 2) or not( 0 < size[1] < height * 2):
+        raise ValueError('invalid size %s' % str(size))
+
+def _check_interval(interval):
+    if not (isinstance(interval, int)) or interval < 0:
+        raise ValueError('invalid interval %s' % str(interval))
+
+def _check_padding(padding):
+    if padding != 'MIRROR' or padding != 'SAME' or padding != 'VALID':
+        raise ValueError('invalid padding %s' % str(padding))
+
+def _check_to_image(to_image):
+    if not isinstance(to_image, bool):
+        raise ValueError('to_image must be bool object but %s' % str(type(to_image)))
+
+def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
+    # TODO: padding='SAME'とpadding='VALID'の対応
+    width, height = array.shape[:2]
+    patch_width = (size[0] // 2, size[0] - size[0] // 2)
+    patch_height = (size[1] // 2, size[1] - size[1] // 2)
+
+    x1, x2 = point[0] - patch_width[0], point[0] + patch_width[1]
+    y1, y2 = point[1] - patch_height[1], point[1] + patch_height[1]
+
+    left, right = x1 < 0, width <= x2
+    up, down = y1 < 0, height <= y1
+    xcenter, ycenter = not left and not right, not up and not down
+
+    # center
+    if xcenter and ycenter:
+        return array[y1:y2, x1:x2]
+    # left
+    if left and ycenter:
+        l = array[y1:y2, :abs(x1) - 1].fliplr()
+        r = array[y1:y2, :x2]
+        if padding == 'MIRROR':
+            return np.concatenate((array[y1:y2, 0:x1].fliplr(), r), axis=1)
+    # right
+    if right and ycenter:
+        l = array[y1:y2, x1:]
+        r = array[y1:y2, 2 * width - x2:].fliplr()
+        return np.concatenate((l, r), axis=1)
+    # up
+    if up and xcenter:
+        u = array[:abs(y1) - 1, x1:x2].flipud()
+        d = array[:y2, x1:x2]
+        return np.concatenate((u, d))
+    # down
+    if down and xcenter:
+        u = array[y1:, x1:x2]
+        d = array[2 * height - y2:, x1:x2].flipud()
+        return np.concatenate((u, d))
+
+    # left up
+    if left and up:
+        ul = np.fliplr(np.flipud(array[:abs(y1) - 1, :abs(x1) - 1]))
+        dl = np.fliplr(array[:y2, abs(x1) - 1])
+
+        ur = np.flipud(array[:abs(y1) - 1, :x2])
+        dr = array[:y2, :x2]
+
+        l = np.concatenate((ul, dl))
+        r = np.concatenate((ur, dr))
+        return np.concatenate((l, r), axis=1)
+
+    # left down
+    if left and down:
+        ul = np.fliplr(array[y1:, :abs(x1) - 1])
+        dl = np.fliplr(np.flipud(array[2 * height - y2:, abs(x1) - 1]))
+
+        ur = array[y1:, :x2]
+        dr = np.flipud(array[2 * height - y2:, :x2])
+
+        l = np.concatenate((ul, dl))
+        r = np.concatenate((ur, dr))
+        return np.concatenate((l, r), axis=1)
+
+    # right up
+    if right and up:
+        ul = np.flipud(array[:abs(y1) - 1, x1:])
+        dl = array[:y2, x1:]
+
+        ur = np.fliplr(np.flipud(array[:abs(y1) - 1, 2 * width - x2:]))
+        dr = np.fliplr(array[:y2, 2 * width - x2:])
+
+        l = np.concatenate((ul, dl))
+        r = np.concatenate((ur, dr))
+        return np.concatenate((l, r), axis=1)
+
+    # right down
+    if right and down:
+        ul = array[y1:, x1:]
+        dl = np.flipud(array[2 * height - y2:, x1:])
+
+        ur = np.fliplr(array[y1:, 2 * width - x2:])
+        dr = np.fliplr(np.flipud(array[2 * height - y2:, 2 * width - x2:]))
+
+        l = np.concatenate((ul, dl))
+        r = np.concatenate((ur, dr))
+        return np.concatenate((l, r))
+
+
 class PatchMaker:
     def __init__(self, patch_size, logger=Logger):
         if patch_size < 0:
