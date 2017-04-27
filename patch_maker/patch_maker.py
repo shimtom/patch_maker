@@ -252,10 +252,10 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
     patch_height = (size[1] // 2, size[1] - size[1] // 2)
 
     x1, x2 = point[0] - patch_width[0], point[0] + patch_width[1]
-    y1, y2 = point[1] - patch_height[1], point[1] + patch_height[1]
+    y1, y2 = point[1] - patch_height[0], point[1] + patch_height[1]
 
-    left, right = x1 < 0, width <= x2
-    up, down = y1 < 0, height <= y1
+    left, right = x1 < 0, width < x2
+    up, down = y1 < 0, height < y2
     xcenter, ycenter = not left and not right, not up and not down
 
     # center
@@ -263,45 +263,77 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
         return array[y1:y2, x1:x2]
     # left
     if left and ycenter:
-        l = np.fliplr(array[y1:y2, :abs(x1) - 1])
+        l = np.fliplr(array[y1:y2, :abs(x1)])
         r = array[y1:y2, :x2]
-        if padding == 'MIRROR':
-            return np.concatenate((array[y1:y2, 0:x1].fliplr(), r), axis=1)
+        return np.concatenate((array[y1:y2, 0:x1].fliplr(), r), axis=1)
     # right
     if right and ycenter:
         l = array[y1:y2, x1:]
-        r = np.fliplr(array[y1:y2, 2 * width - x2:])
+        r = np.fliplr(array[y1:y2, 2 * width - x2 - 1:])
         return np.concatenate((l, r), axis=1)
     # up
     if up and xcenter:
-        u = np.fliplr(array[:abs(y1) - 1, x1:x2])
+        u = np.fliplr(array[:abs(y1), x1:x2])
         d = array[:y2, x1:x2]
         return np.concatenate((u, d))
     # down
     if down and xcenter:
         u = array[y1:, x1:x2]
-        d = np.flipud(array[2 * height - y2:, x1:x2])
+        d = np.flipud(array[2 * height - y2 - 1:, x1:x2])
         return np.concatenate((u, d))
+
+    if left and right and up and down:
+        ul = np.fliplr(np.flipud(array[:abs(y1), :abs(x1)]))
+        dl = np.fliplr(np.flipud(array[2 * height - y2 - 1:, :abs(x1)]))
+        ur = np.fliplr(np.flipud(array[:abs(y1), 2 * width - x2 - 1:]))
+        dr = np.fliplr(np.flipud(array[2 * height - y2 - 1:, 2 * width - x2 - 1:]))
+
+        l = np.fliplr(array[y1:y2, :abs(x1)])
+        r = np.fliplr(array[y1:y2, 2 * width - x2 - 1:])
+        u = np.fliplr(array[:abs(y1), x1:x2])
+        d = np.flipud(array[2 * height - y2 - 1:, x1:x2])
+
+        c = array[:, :]
+
+        l = np.concatenate((ul, l, dl))
+        c = np.concatenate((u, c, d))
+        r = np.concatenate((ur, r, dr))
+
+        return np.concatenate((l, c, r), axis=1)
+
+    if left and right and ycenter:
+        l = np.fliplr(array[y1:y2, :abs(x1)])
+        r = np.fliplr(array[y1:y2, 2 * width - x2 - 1:])
+        c = array[:, :]
+
+        return np.concatenate((l, c, r), axis=1)
+
 
     # left up
     if left and up:
-        ul = np.fliplr(np.flipud(array[:abs(y1) - 1, :abs(x1) - 1]))
-        dl = np.fliplr(array[:y2, abs(x1) - 1])
+        ul = np.fliplr(np.flipud(array[:abs(y1), :abs(x1)]))
+        dl = np.fliplr(array[:y2, :abs(x1)])
 
-        ur = np.flipud(array[:abs(y1) - 1, :x2])
+        ur = np.flipud(array[:abs(y1), :x2])
         dr = array[:y2, :x2]
 
         l = np.concatenate((ul, dl))
         r = np.concatenate((ur, dr))
+
+        if size == (25, 25) and point == (10, 10):
+            print(x1, x2)
+            print(y1, y2)
+            print(ul.shape, dl.shape)
+            print(ur.shape, dr.shape)
         return np.concatenate((l, r), axis=1)
 
     # left down
     if left and down:
-        ul = np.fliplr(array[y1:, :abs(x1) - 1])
-        dl = np.fliplr(np.flipud(array[2 * height - y2:, abs(x1) - 1]))
+        ul = np.fliplr(array[y1:, :abs(x1)])
+        dl = np.fliplr(np.flipud(array[2 * height - y2 - 1:, :abs(x1)]))
 
         ur = array[y1:, :x2]
-        dr = np.flipud(array[2 * height - y2:, :x2])
+        dr = np.flipud(array[2 * height - y2 - 1:, :x2])
 
         l = np.concatenate((ul, dl))
         r = np.concatenate((ur, dr))
@@ -309,11 +341,11 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
 
     # right up
     if right and up:
-        ul = np.flipud(array[:abs(y1) - 1, x1:])
+        ul = np.flipud(array[:abs(y1), x1:])
         dl = array[:y2, x1:]
 
-        ur = np.fliplr(np.flipud(array[:abs(y1) - 1, 2 * width - x2:]))
-        dr = np.fliplr(array[:y2, 2 * width - x2:])
+        ur = np.fliplr(np.flipud(array[:abs(y1), 2 * width - x2 - 1:]))
+        dr = np.fliplr(array[:y2, 2 * width - x2 - 1:])
 
         l = np.concatenate((ul, dl))
         r = np.concatenate((ur, dr))
@@ -322,14 +354,59 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
     # right down
     if right and down:
         ul = array[y1:, x1:]
-        dl = np.flipud(array[2 * height - y2:, x1:])
+        dl = np.flipud(array[2 * height - y2 - 1:, x1:])
 
-        ur = np.fliplr(array[y1:, 2 * width - x2:])
-        dr = np.fliplr(np.flipud(array[2 * height - y2:, 2 * width - x2:]))
+        ur = np.fliplr(array[y1:, 2 * width - x2 - 1:])
+        dr = np.fliplr(np.flipud(array[2 * height - y2 - 1:, 2 * width - x2 - 1:]))
 
         l = np.concatenate((ul, dl))
         r = np.concatenate((ur, dr))
         return np.concatenate((l, r))
+
+def _mirror_left_center(array, box):
+    x1, y1, x2, y2 = box
+    return np.fliplr(array[y1:y2, :abs(x1)])
+
+
+MIRROR = 'MIRROR'
+SAME = 'SAME'
+VALID = 'VALID'
+
+class Clip:
+    def __init__(self, width, height, padding=MIRROR):
+        self._width = width
+        self._height = height
+        self._padding = padding
+
+    def center(self, array, box):
+        x1, y1, x2, y2 = box
+        return array[y1:y2, x1:x2]
+
+    def holizontal(self, array, x1, x2):
+        center = array[:, x1:x2]
+        if self._padding == VALID:
+            return center
+        if self._padding == MIRROR:
+            source = array
+        elif self._padding == SAME:
+            source = np.zeros_like(array)
+        left = np.fliplr(source[:, :abs(min(0, x1))])
+        right = np.fliplr(source[:, min(2*self._width - x2 -1, self._width):])
+
+        return np.concatenate((left, center, right), axis=1)
+
+    def vertical(self, array, y1, y2):
+        center = array[y1:y2, :]
+        if self._padding == VALID:
+            return center
+        if self._padding == MIRROR:
+            source = array
+        elif self._padding == SAME:
+            source = np.zeros_like(array)
+        up = np.flipud(source[:, :abs(min(0, y1))])
+        down = np.flipud(source[:, min(2 * self._height - y2 - 1, self._height):])
+
+        return np.concatenate((up, center, down))
 
 
 class PatchMaker:
