@@ -23,13 +23,13 @@ class TestPatchMaker(TestCase):
         points = [(10, 10), (0, 0), (0, 20), (20, 0), (20, 20),
                   (0, 10), (20, 10), (10, 20), (0, 10)]
         # 幅 = 高さ
-        sizes = [(0, 0), (10, 10), (20, 20), (25, 25),
+        sizes = [(10, 10), (20, 20), (25, 25),
                  (30, 30), (35, 35), (40, 40)]
         # 幅 < 高さ
-        sizes += [(0, 5), (5, 10), (15, 20), (20, 25),
+        sizes += [(5, 10), (15, 20), (20, 25),
                   (25, 30), (30, 35), (35, 40)]
         # 幅 > 高さ
-        sizes += [(5, 0), (10, 5), (20, 15), (25, 20),
+        sizes += [(10, 5), (20, 15), (25, 20),
                   (30, 20), (35, 30), (40, 35)]
 
         # TODO: 'SAME', "VALID" is not implemented. So fix them if implemented.
@@ -55,8 +55,8 @@ class TestPatchMaker(TestCase):
         failure_points += [(21, 21), (21, 20), (20, 21)]
         failure_points += [(-1, 21), (-1, 20), (0, 21)]
         failure_points += [(0.1, 0.1), (0.1, 0), (0, 0.1)]
-        failure_sizes = [(-1, -1), (41, 41), (-1, 0), (0, -1),
-                         (41, 40), (40, 41), (0.1, 0.1), (0.1, 0), (0, 0.1)]
+        failure_sizes = [(0, 0), (0, 5), (5, 0), (-1, -1), (41, 41), (-1, 1), (1, -1),
+                         (41, 40), (40, 41), (0.1, 0.1), (0.1, 1), (1, 0.1)]
         failure_paddings = ['']
 
         for point in failure_points:
@@ -95,15 +95,15 @@ class TestPatchMaker(TestCase):
     def test_generate_patches(self):
         """画像から指定された条件で、画像から連続してパッチを切り出すメソッドをテストする."""
         # 幅 = 高さ
-        sizes = [(0, 0), (10, 10), (20, 20), (25, 25),
+        sizes = [(10, 10), (20, 20), (25, 25),
                  (30, 30), (35, 35), (40, 40)]
         # 幅 < 高さ
-        sizes += [(0, 5), (5, 10), (15, 20), (20, 25),
+        sizes += [(5, 10), (15, 20), (20, 25),
                   (25, 30), (30, 35), (35, 40)]
         # 幅 > 高さ
-        sizes += [(5, 0), (10, 5), (20, 15), (25, 20),
+        sizes += [(10, 5), (20, 15), (25, 20),
                   (30, 20), (35, 30), (40, 35)]
-        intervals = [0, 1, 20, 40, 1000, 1600]
+        intervals = [1, 20, 40, 1000, 1600]
         # TODO: 'SAME', "VALID" is not implemented. So fix them if implemented.
         paddings = ['MIRROR']
 
@@ -129,9 +129,9 @@ class TestPatchMaker(TestCase):
                             count += 1
                         self.assertEqual(length, count)
 
-        failure_sizes = [(-1, -1), (41, 41), (-1, 0), (0, -1),
+        failure_sizes = [(0, 0), (0, 5), (5, 0), (-1, -1), (41, 41), (-1, 0), (0, -1),
                          (41, 40), (40, 41), (0.1, 0.1), (0.1, 0), (0, 0.1)]
-        failure_intervals = [-1, 0.1]
+        failure_intervals = [-1, 0.1, 0]
         failure_paddings = ['']
 
         # check size
