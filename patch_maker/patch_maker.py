@@ -224,21 +224,21 @@ def _check_image(image):
 def _check_point(point, width, height):
     if not (isinstance(point, tuple) or isinstance(point, list)) or len(point) != 2:
         raise ValueError('point must be 2 length tuple or list but %s' % str(point))
-    if not isinstance(point[0], int) or not isinstance(point[1], int) or not(0 <= point[0] < width) or not(0<= point[1] < height):
+    if not isinstance(point[0], int) or not isinstance(point[1], int) or not(0 <= point[0] < width) or not(0 <= point[1] < height):
         raise ValueError('invalid coordinate %s' % str(point))
 
 def _check_size(size, width, height):
     if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
         raise ValueError('size must be 2 length tuple or list but %s' % str(size))
-    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 <= size[0] < width * 2) or not( 0 <= size[1] < height * 2):
+    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 < size[0] < width * 2) or not( 0 < size[1] < height * 2):
         raise ValueError('invalid size %s' % str(size))
 
 def _check_interval(interval):
-    if not (isinstance(interval, int)) or interval < 0:
+    if not (isinstance(interval, int)) or interval <= 0:
         raise ValueError('invalid interval %s' % str(interval))
 
 def _check_padding(padding):
-    if padding != 'MIRROR' or padding != 'SAME' or padding != 'VALID':
+    if not (padding == 'MIRROR' or padding == 'SAME' or padding == 'VALID'):
         raise ValueError('invalid padding %s' % str(padding))
 
 def _check_to_image(to_image):
@@ -263,24 +263,24 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
         return array[y1:y2, x1:x2]
     # left
     if left and ycenter:
-        l = array[y1:y2, :abs(x1) - 1].fliplr()
+        l = np.fliplr(array[y1:y2, :abs(x1) - 1])
         r = array[y1:y2, :x2]
         if padding == 'MIRROR':
             return np.concatenate((array[y1:y2, 0:x1].fliplr(), r), axis=1)
     # right
     if right and ycenter:
         l = array[y1:y2, x1:]
-        r = array[y1:y2, 2 * width - x2:].fliplr()
+        r = np.fliplr(array[y1:y2, 2 * width - x2:])
         return np.concatenate((l, r), axis=1)
     # up
     if up and xcenter:
-        u = array[:abs(y1) - 1, x1:x2].flipud()
+        u = np.fliplr(array[:abs(y1) - 1, x1:x2])
         d = array[:y2, x1:x2]
         return np.concatenate((u, d))
     # down
     if down and xcenter:
         u = array[y1:, x1:x2]
-        d = array[2 * height - y2:, x1:x2].flipud()
+        d = np.flipud(array[2 * height - y2:, x1:x2])
         return np.concatenate((u, d))
 
     # left up
