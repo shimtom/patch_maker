@@ -218,7 +218,7 @@ def generate_patches(image, size, interval=1, padding='MIRROR', to_image=True):
         yield Image.fromarray(patch) if to_image else patch
 
 def _check_image(image):
-    if not isinstance(image, Image):
+    if not isinstance(image, Image.Image):
         raise ValueError('image must be PIL.Image object but %s.' % str(type(image)))
 
 def _check_point(point, width, height):
@@ -230,7 +230,7 @@ def _check_point(point, width, height):
 def _check_size(size, width, height):
     if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
         raise ValueError('size must be 2 length tuple or list but %s' % str(size))
-    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 < size[0] < width * 2) or not( 0 < size[1] < height * 2):
+    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 <= size[0] < width * 2) or not( 0 <= size[1] < height * 2):
         raise ValueError('invalid size %s' % str(size))
 
 def _check_interval(interval):
