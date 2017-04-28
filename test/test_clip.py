@@ -13,8 +13,9 @@ class TestClip(TestCase):
 
         points = [-10, -1, 0, 1, 20, 21, 30]
         self._points = [(p1, p2) for p1 in points for p2 in points]
-        self._failure_points = [(p1, p2) for p1 in [-11, 31] for p2 in points]
-        self._failure_array = ['', None, 1, 1.0, np.array([])]
+        self._failure_points = [(p1, p2) for p1 in [-21, 41] for p2 in points]
+        self._failure_points += [(p1, p2) for p1 in points for p2 in [-21, 41]]
+        self._failure_arrays = ['', None, 1, 1.0, np.array([])]
 
     def test_constructor(self):
         paddings = [pm.MIRROR, pm.SAME, pm.VALID]
@@ -26,8 +27,8 @@ class TestClip(TestCase):
             for array in self._test_array:
                 try:
                     pm.Clip(padding=padding)
-                except ValueError as e:
-                    self.self.fail(e)
+                except Exception as e:
+                    self.fail(e)
 
         for padding in ['', 0, 0.1, None, 'mirror', 'same', 'valid']:
             for array in self._test_array:
@@ -36,30 +37,39 @@ class TestClip(TestCase):
 
     def test_holizontal(self):
         for array in self._test_array:
+            w = array.shape[1]
             clip_valid = pm.Clip(padding=pm.VALID)
             clip_mirror = pm.Clip(padding=pm.MIRROR)
             clip_same = pm.Clip(padding=pm.SAME)
-            w = array.shape[1]
             for point in self._points:
-                # VALID
+                # valid
                 answer = make_holizontal_answer(valid(point, w), array.shape)
-                result = clip_valid.holizontal(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.VALID, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.VALID, str(point), str(answer))
+                try:
+                    result = clip_valid.holizontal(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # mirror
                 answer = make_holizontal_answer(mirror(point, w), array.shape)
-                result = clip_mirror.holizontal(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.MIRROR, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.MIRROR, str(point), str(answer))
+                try:
+                    result = clip_mirror.holizontal(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # same
                 answer = make_holizontal_answer(same(point, w), array.shape)
-                result = clip_same.holizontal(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.SAME, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.SAME, str(point), str(answer))
+                try:
+                    result = clip_same.holizontal(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
     def test_holizontal_failing(self):
@@ -73,7 +83,7 @@ class TestClip(TestCase):
                     clip_mirror.holizontal(array, point[0], point[1])
                     clip_same.holizontal(array, point[0], point[1])
 
-        for array in self._failure_array:
+        for array in self._failure_arrays:
             clip_valid = pm.Clip(padding=pm.VALID)
             clip_mirror = pm.Clip(padding=pm.MIRROR)
             clip_same = pm.Clip(padding=pm.SAME)
@@ -92,45 +102,54 @@ class TestClip(TestCase):
             for point in self._points:
                 # VALID
                 answer = make_vertical_answer(valid(point, h), array.shape)
-                result = clip_valid.vertical(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.VALID, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.VALID, str(point), str(answer))
+                try:
+                    result = clip_valid.vertical(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # mirror
                 answer = make_vertical_answer(mirror(point, h), array.shape)
-                result = clip_mirror.vertical(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.MIRROR, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.MIRROR, str(point), str(answer))
+                try:
+                    result = clip_mirror.vertical(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # same
                 answer = make_vertical_answer(same(point, h), array.shape)
-                result = clip_same.vertical(array, point[0], point[1])
-                message = 'padding: %s, point: %s, answer: %s, shape: %s' % (
-                    pm.SAME, str(point), str(answer), str(result.shape))
+                message = 'padding: %s, point: %s, answer: %s' % (
+                    pm.SAME, str(point), str(answer))
+                try:
+                    result = clip_same.vertical(array, point[0], point[1])
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
-        def test_vertical_failing(self):
-            for array in self._test_array:
-                clip_valid = pm.Clip(padding=pm.VALID)
-                clip_mirror = pm.Clip(padding=pm.MIRROR)
-                clip_same = pm.Clip(padding=pm.SAME)
-                for point in self._failure_points:
-                    with self.assertRaises(ValueError):
-                        clip_valid.vertical(array, point[0], point[1])
-                        clip_mirror.vertical(array, point[0], point[1])
-                        clip_same.vertical(array, point[0], point[1])
+    def test_vertical_failing(self):
+        for array in self._test_array:
+            clip_valid = pm.Clip(padding=pm.VALID)
+            clip_mirror = pm.Clip(padding=pm.MIRROR)
+            clip_same = pm.Clip(padding=pm.SAME)
+            for point in self._failure_points:
+                with self.assertRaises(ValueError):
+                    clip_valid.vertical(array, point[0], point[1])
+                    clip_mirror.vertical(array, point[0], point[1])
+                    clip_same.vertical(array, point[0], point[1])
 
-            for array in self._failure_arrays:
-                clip_valid = pm.Clip(padding=pm.VALID)
-                clip_mirror = pm.Clip(padding=pm.MIRROR)
-                clip_same = pm.Clip(padding=pm.SAME)
-                for point in self._points:
-                    with self.assertRaises(ValueError):
-                        clip_valid.vertical(array, point[0], point[1])
-                        clip_mirror.vertical(array, point[0], point[1])
-                        clip_same.vertical(array, point[0], point[1])
+        for array in self._failure_arrays:
+            clip_valid = pm.Clip(padding=pm.VALID)
+            clip_mirror = pm.Clip(padding=pm.MIRROR)
+            clip_same = pm.Clip(padding=pm.SAME)
+            for point in self._points:
+                with self.assertRaises(ValueError):
+                    clip_valid.vertical(array, point[0], point[1])
+                    clip_mirror.vertical(array, point[0], point[1])
+                    clip_same.vertical(array, point[0], point[1])
 
     def test_center(self):
         points_list = [(x, y) for x in self._points for y in self._points]
@@ -146,27 +165,36 @@ class TestClip(TestCase):
                 x1, x2 = valid(ps[0], w)
                 y1, y2 = valid(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
-                result = clip_valid.center(array, box)
-                message = 'padding: %s, box: %s, answer: %s, shape: %s' % (
-                    pm.VALID, str(box), str(answer), str(result.shape))
+                message = 'padding: %s, box: %s, answer: %s' % (
+                    pm.VALID, str(box), str(answer))
+                try:
+                    result = clip_valid.center(array, box)
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # mirror
                 x1, x2 = mirror(ps[0], w)
                 y1, y2 = mirror(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
-                result = clip_mirror.center(array, box)
-                message = 'padding: %s, box: %s, answer: %s, shape: %s' % (
-                    pm.MIRROR, str(box), str(answer), str(result.shape))
+                message = 'padding: %s, box: %s, answer: %s' % (
+                    pm.MIRROR, str(box), str(answer))
+                try:
+                    result = clip_mirror.center(array, box)
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
                 # same
                 x1, x2 = same(ps[0], w)
                 y1, y2 = same(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
-                result = clip_same.center(array, box)
-                message = 'padding: %s, box: %s, answer: %s, shape: %s' % (
-                    pm.SAME, str(box), str(answer), str(result.shape))
+                message = 'padding: %s, box: %s, answer: %s' % (
+                    pm.SAME, str(box), str(answer))
+                try:
+                    result = clip_same.center(array, box)
+                except Exception as e:
+                    self.fail('%s\n%s' % (str(e), message))
                 self.assertEqual(result.shape, answer, msg=message)
 
     def test_center_failing(self):
