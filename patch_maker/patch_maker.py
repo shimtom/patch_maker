@@ -236,8 +236,8 @@ def _check_point(point, width, height):
 def _check_size(size, width, height):
     if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
         raise ValueError('size must be 2 length tuple or list but %s' % str(size))
-    if not isinstance(size[0], int) or not isinstance(size[0], int) or not (0 < size[0] < width * 2) or not( 0 < size[1] < height * 2):
-        raise ValueError('invalid size %s' % str(size))
+    if not (isinstance(size[0], int) and isinstance(size[0], int)) or not (0 < size[0] <= width) or not( 0 < size[1] <= height):
+        raise ValueError('invalid size %s. limit (%s)' % (str(size), str((width*2, height*2))))
 
 def _check_interval(interval):
     if not (isinstance(interval, int)) or interval <= 0:
@@ -375,13 +375,16 @@ VALID = 'VALID'
 
 def _generate_patch(array, point, size, padding=MIRROR):
     x, y = point
-    width, height = array.shape[:2]
+    height, width = array.shape[:2]
     patch_width, patch_height = size
 
     x1, x2 = x - patch_width // 2, x + patch_width - patch_width // 2
     y1, y2 = y - patch_height //2, y + patch_height - patch_height // 2
-
-    return Clip(array, padding=padding).center((x1, y1, x2, y2))
+    if padding==VALID:
+        if x1 == 20 and x2 == 20:
+            print(x1, x2)
+            print(point, size, padding, patch_width, width)
+    return Clip(padding=padding).center(array, (x1, y1, x2, y2))
 
 def _check_array(array):
     if not isinstance(array, np.ndarray):
@@ -403,11 +406,9 @@ class Clip:
 
     def holizontal(self, array, x1, x2):
         _check_array(array)
-        width = array.shape[1]
-        xlimit = (- width // 2, width + (width - width // 2))
-
-        if not (xlimit[0] <= x1 <= xlimit[1]) or not (xlimit[0] <= x2 <= xlimit[1]):
-            raise ValueError('invalid (x1, x2)=%s. limit=%s' % (str((x1, x2)),str(xlimit)))
+        height, width = array.shape[:2]
+        if not (- width <= x1 < 2*width and - width <= x2 < 2 * width):
+            raise ValueError('can\'t mirror (x1, x2)=%s' % str((x1, x2)))
 
         if x1 >= x2:
             shape = [array.shape[0], 0] + list(array.shape[2:])
@@ -418,20 +419,17 @@ class Clip:
         if self._padding == MIRROR:
             source = array
         elif self._padding == SAME:
-            source = np.zeros_like(array)
-
+            source = np.zeros((height, width + max(0, 0 - x1) - min(0, width - x2)) + array.shape[2:])
         left = np.flipud(source[:, abs(min(0, x2)):abs(min(0, x1))])
         right = np.flipud(source[:, min(2 * width - x2 , width):min(2 * width - x1 , width)])
 
-        return np.concatenate((left, center, right), axis=1)
+        return np.concatenate((left, center, right), axis=1).astype(array.dtype)
 
     def vertical(self, array, y1, y2):
         _check_array(array)
-        height = array.shape[0]
-        ylimit = (- height // 2, height + (height - height // 2))
-
-        if not (ylimit[0] <= y1 <= ylimit[1]) or not (ylimit[0] <= y2 <= ylimit[1]):
-            raise ValueError('invalid (y1, y2)=%s. limit=%s' % (str((y1, y2)),str(ylimit)))
+        height,width = array.shape[:2]
+        if not(- height <= y1 < 2 * height and - height <= y2 < 2 * height):
+            raise ValueError('can\'t mirror (y1, y2)=%s' % str((y1, y2)))
 
         if y1 >= y2:
             shape = [0] + list(array.shape[1:])
@@ -442,12 +440,11 @@ class Clip:
         if self._padding == MIRROR:
             source = array
         elif self._padding == SAME:
-            source = np.zeros_like(array)
-
+            source = np.zeros((height + max(0, - y1) - min(0, height - y2), width) + array.shape[2:])
         up = np.flipud(source[abs(min(0, y2)):abs(min(0, y1)), :])
         down = np.flipud(source[min(2 * height - y2 , height):min(2 * height - y1 , height), :])
 
-        return np.concatenate((up, center, down))
+        return np.concatenate((up, center, down)).astype(array.dtype)
 
     def center(self, array, box):
         _check_array(array)
