@@ -192,7 +192,10 @@ def generate_patch(image, point, size, padding='MIRROR', to_image=True):
     _check_to_image(to_image)
 
     patch = _generate_patch(np.array(image), point, size, padding=padding)
-    return Image.fromarray(patch) if to_image else patch
+    if to_image:
+        return Image.fromarray(patch)
+    else:
+        return patch
 
 
 def generate_patches(image, size, interval=1, padding='MIRROR', to_image=True):
@@ -202,7 +205,7 @@ def generate_patches(image, size, interval=1, padding='MIRROR', to_image=True):
     :param interval: パッチを切り出す間隔
     :param padding: 'MIRROR','SAME','VALID'のどれか.パッチのパディングの仕方.
     :param to_image: パッチをPIL.Image オブジェクトに変換するか.Falseの場合,numpy.ndarrayオブジェクト
-    :return: パッチ.
+    :yield: パッチ.
     """
     _check_image(image)
     _check_size(size, image.width, image.height)
@@ -215,7 +218,10 @@ def generate_patches(image, size, interval=1, padding='MIRROR', to_image=True):
     for i in range(0, width * height, interval):
         x, y = i % width, i // width
         patch = _generate_patch(array, (x, y), size, padding=padding)
-        yield Image.fromarray(patch) if to_image else patch
+        if to_image:
+            yield Image.fromarray(patch)
+        else:
+            yield patch
 
 def _check_image(image):
     if not isinstance(image, Image.Image):
@@ -238,15 +244,14 @@ def _check_interval(interval):
         raise ValueError('invalid interval %s' % str(interval))
 
 def _check_padding(padding):
-    if not (padding == 'MIRROR' or padding == 'SAME' or padding == 'VALID'):
+    if not (padding == MIRROR or padding == SAME or padding == VALID):
         raise ValueError('invalid padding %s' % str(padding))
 
 def _check_to_image(to_image):
     if not isinstance(to_image, bool):
         raise ValueError('to_image must be bool object but %s' % str(type(to_image)))
 
-def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
-    # TODO: padding='SAME'とpadding='VALID'の対応
+def _generate_patch2(array, point, size, padding='MIRROR', to_image=True):
     width, height = array.shape[:2]
     patch_width = (size[0] // 2, size[0] - size[0] // 2)
     patch_height = (size[1] // 2, size[1] - size[1] // 2)
@@ -363,50 +368,92 @@ def _generate_patch(array, point, size, padding='MIRROR', to_image=True):
         r = np.concatenate((ur, dr))
         return np.concatenate((l, r))
 
-def _mirror_left_center(array, box):
-    x1, y1, x2, y2 = box
-    return np.fliplr(array[y1:y2, :abs(x1)])
-
 
 MIRROR = 'MIRROR'
 SAME = 'SAME'
 VALID = 'VALID'
 
+def _generate_patch(array, point, size, padding=MIRROR):
+    x, y = point
+    width, height = array.shape[:2]
+    patch_width, patch_height = size
+
+    x1, x2 = x - patch_width // 2, x + patch_width - patch_width // 2
+    y1, y2 = y - patch_height //2, y + patch_height - patch_height // 2
+
+    return Clip(array, padding=padding).center((x1, y1, x2, y2))
+
+def _check_array(array):
+    if not isinstance(array, np.ndarray):
+        raise ValueError('invalid array %s' % type(array))
+    if len(array.shape) < 2:
+        raise ValueError('invalid array shape %s.' %(str(array.shape)))
+
+def _check_box(box):
+    if not (isinstance(box, tuple) or isinstance(box, list)):
+        raise ValueError('invalid box %s' % type(box))
+    if len(box) != 4:
+        raise ValueError('invalid box %s' % str(box))
+
 class Clip:
-    def __init__(self, width, height, padding=MIRROR):
-        self._width = width
-        self._height = height
+    """画像配列から指定された領域を切り出す."""
+    def __init__(self, padding=MIRROR):
+        _check_padding(padding)
         self._padding = padding
 
-    def center(self, array, box):
-        x1, y1, x2, y2 = box
-        return array[y1:y2, x1:x2]
-
     def holizontal(self, array, x1, x2):
-        center = array[:, x1:x2]
+        _check_array(array)
+        width = array.shape[1]
+        xlimit = (- width // 2, width + (width - width // 2))
+
+        if not (xlimit[0] <= x1 <= xlimit[1]) or not (xlimit[0] <= x2 <= xlimit[1]):
+            raise ValueError('invalid (x1, x2)=%s. limit=%s' % (str((x1, x2)),str(xlimit)))
+
+        if x1 >= x2:
+            shape = [array.shape[0], 0] + list(array.shape[2:])
+            return np.array([], dtype=array.dtype).reshape(shape)
+        center = array[:, min(max(x1, 0), width):max(min(x2, width), 0)]
         if self._padding == VALID:
             return center
         if self._padding == MIRROR:
             source = array
         elif self._padding == SAME:
             source = np.zeros_like(array)
-        left = np.fliplr(source[:, :abs(min(0, x1))])
-        right = np.fliplr(source[:, min(2*self._width - x2 -1, self._width):])
+
+        left = np.flipud(source[:, abs(min(0, x2)):abs(min(0, x1))])
+        right = np.flipud(source[:, min(2 * width - x2 , width):min(2 * width - x1 , width)])
 
         return np.concatenate((left, center, right), axis=1)
 
     def vertical(self, array, y1, y2):
-        center = array[y1:y2, :]
+        _check_array(array)
+        height = array.shape[0]
+        ylimit = (- height // 2, height + (height - height // 2))
+
+        if not (ylimit[0] <= y1 <= ylimit[1]) or not (ylimit[0] <= y2 <= ylimit[1]):
+            raise ValueError('invalid (y1, y2)=%s. limit=%s' % (str((y1, y2)),str(ylimit)))
+
+        if y1 >= y2:
+            shape = [0] + list(array.shape[1:])
+            return np.array([], dtype=array.dtype).reshape(shape)
+        center = array[min(max(y1, 0), height):max(min(y2, height), 0), :]
         if self._padding == VALID:
             return center
         if self._padding == MIRROR:
             source = array
         elif self._padding == SAME:
             source = np.zeros_like(array)
-        up = np.flipud(source[:, :abs(min(0, y1))])
-        down = np.flipud(source[:, min(2 * self._height - y2 - 1, self._height):])
+
+        up = np.flipud(source[abs(min(0, y2)):abs(min(0, y1)), :])
+        down = np.flipud(source[min(2 * height - y2 , height):min(2 * height - y1 , height), :])
 
         return np.concatenate((up, center, down))
+
+    def center(self, array, box):
+        _check_array(array)
+        _check_box(box)
+        x1, y1, x2, y2 = box
+        return self.vertical(self.holizontal(array, x1, x2), y1, y2)
 
 
 class PatchMaker:
