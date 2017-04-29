@@ -1,7 +1,6 @@
 from unittest import TestCase, skip
 from patch_maker import generate_patch, generate_patches
 from patch_maker import Padding
-import patch_maker as pm
 from PIL import Image
 import numpy as np
 
