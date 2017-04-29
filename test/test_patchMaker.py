@@ -124,7 +124,8 @@ class TestPatchMaker(TestCase):
                                 self.assertEqual(image.mode, patch.mode)
                                 # TODO: ピクセルごとに値の確認
                         except Exception as e:
-                            self.fail('%s\n' % ( str(e)))
+                            self.fail('%s\n' % (str(e)))
+
     @skip
     def test_generate_patches_failing(self):
         failure_intervals = [-1, 0.1, 0]
@@ -195,6 +196,7 @@ class TestPatchMaker(TestCase):
                                     next(gnenerator)
                             except StopIteration:
                                 break
+
 
 def valid(point, size, width, height):
     x, y = point

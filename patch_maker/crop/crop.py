@@ -1,13 +1,16 @@
 import numpy as np
 from enum import Enum
 
+
 class Padding(Enum):
     MIRROR = 0
     SAME = 1
     VALID = 2
 
+
 class Crop:
     """画像配列から指定された領域を切り出す."""
+
     def __init__(self, padding=Padding.MIRROR):
         _check_padding(padding)
         self._padding = padding
@@ -15,7 +18,7 @@ class Crop:
     def holizontal(self, array, x1, x2):
         _check_array(array)
         height, width = array.shape[:2]
-        if not (- width <= x1 < 2*width and - width <= x2 < 2 * width):
+        if not (- width <= x1 < 2 * width and - width <= x2 < 2 * width):
             raise ValueError('can\'t mirror (x1, x2)=%s' % str((x1, x2)))
 
         if x1 >= x2:
@@ -27,15 +30,17 @@ class Crop:
         if self._padding == Padding.MIRROR:
             source = array
         elif self._padding == Padding.SAME:
-            source = np.zeros((height, width + max(0, 0 - x1) - min(0, width - x2)) + array.shape[2:])
+            source = np.zeros(
+                (height, width + max(0, 0 - x1) - min(0, width - x2)) + array.shape[2:])
         left = np.flipud(source[:, abs(min(0, x2)):abs(min(0, x1))])
-        right = np.flipud(source[:, min(2 * width - x2 , width):min(2 * width - x1 , width)])
+        right = np.flipud(
+            source[:, min(2 * width - x2, width):min(2 * width - x1, width)])
 
         return np.concatenate((left, center, right), axis=1).astype(array.dtype)
 
     def vertical(self, array, y1, y2):
         _check_array(array)
-        height,width = array.shape[:2]
+        height, width = array.shape[:2]
         if not(- height <= y1 < 2 * height and - height <= y2 < 2 * height):
             raise ValueError('can\'t mirror (y1, y2)=%s' % str((y1, y2)))
 
@@ -48,9 +53,11 @@ class Crop:
         if self._padding == Padding.MIRROR:
             source = array
         elif self._padding == Padding.SAME:
-            source = np.zeros((height + max(0, - y1) - min(0, height - y2), width) + array.shape[2:])
+            source = np.zeros(
+                (height + max(0, - y1) - min(0, height - y2), width) + array.shape[2:])
         up = np.flipud(source[abs(min(0, y2)):abs(min(0, y1)), :])
-        down = np.flipud(source[min(2 * height - y2 , height):min(2 * height - y1 , height), :])
+        down = np.flipud(
+            source[min(2 * height - y2, height):min(2 * height - y1, height), :])
 
         return np.concatenate((up, center, down)).astype(array.dtype)
 
@@ -60,17 +67,20 @@ class Crop:
         x1, y1, x2, y2 = box
         return self.vertical(self.holizontal(array, x1, x2), y1, y2)
 
+
 def _check_array(array):
     if not isinstance(array, np.ndarray):
         raise ValueError('invalid array %s' % type(array))
     if len(array.shape) < 2:
-        raise ValueError('invalid array shape %s.' %(str(array.shape)))
+        raise ValueError('invalid array shape %s.' % (str(array.shape)))
+
 
 def _check_box(box):
     if not (isinstance(box, tuple) or isinstance(box, list)):
         raise ValueError('invalid box %s' % type(box))
     if len(box) != 4:
         raise ValueError('invalid box %s' % str(box))
+
 
 def _check_padding(padding):
     if padding not in Padding:

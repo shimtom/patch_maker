@@ -76,7 +76,8 @@ class PatchMaker3D:
                 for x in range(width):
                     slice_xy, slice_zx, slice_yz = list(map(lambda name: np.load(os.path.join(save_dir, name)),
                                                             ['xy-%d.npy' % z, 'zx-%d.npy' % y, 'yz-%d.npy' % x]))
-                    patch = self._make_patch(slice_xy[y][x], slice_zx[x][z], slice_yz[z][y])
+                    patch = self._make_patch(
+                        slice_xy[y][x], slice_zx[x][z], slice_yz[z][y])
                     yield patch
                     del slice_xy
                     del slice_zx
@@ -126,7 +127,8 @@ class PatchMaker3D:
                         patches = []
                     slice_xy, slice_zx, slice_yz = list(map(lambda name: np.load(os.path.join(save_dir, name)),
                                                             ['xy-%d.npy' % z, 'zx-%d.npy' % y, 'yz-%d.npy' % x]))
-                    patches.append(self._make_patch(slice_xy[y][x], slice_zx[x][z], slice_yz[z][y]))
+                    patches.append(self._make_patch(
+                        slice_xy[y][x], slice_zx[x][z], slice_yz[z][y]))
                     del slice_xy
                     del slice_zx
                     del slice_yz
@@ -163,7 +165,8 @@ class PatchMaker3D:
     def _make_patch(self, patch_xy, patch_zx, patch_yz):
         patch = np.array([patch_xy, patch_zx, patch_yz])
         patch = np.transpose(patch, axes=(1, 2, 0, 3))
-        patch = patch.reshape([self._patch_maker.patch_size, self._patch_maker.patch_size, -1])
+        patch = patch.reshape(
+            [self._patch_maker.patch_size, self._patch_maker.patch_size, -1])
         return patch
 
     def _get_patch(self, slicer, x, y, z):
@@ -173,7 +176,8 @@ class PatchMaker3D:
             raise ValueError('IndexOutOfBoundsError: (x, y, z)=(%d,%d,%d) must be within (%d, %d, %d)' % (
                 x, y, z, width, height, depth))
 
-        slice_xy, slice_zx, slice_yz = slicer.get_slice(x, y, z, immediately=True, convert_image=False)
+        slice_xy, slice_zx, slice_yz = slicer.get_slice(
+            x, y, z, immediately=True, convert_image=False)
         patch_xy = self._patch_maker.get_patch(slice_xy, x, y)
         patch_zx = self._patch_maker.get_patch(slice_zx, z, x)
         patch_yz = self._patch_maker.get_patch(slice_yz, y, z)
@@ -224,51 +228,65 @@ def generate_patches(image, size, interval=1, padding=Padding.MIRROR, to_image=T
         else:
             yield patch
 
+
 def _generate_patch(array, point, size, padding):
     x, y = point
     height, width = array.shape[:2]
     patch_width, patch_height = size
 
     x1, x2 = x - patch_width // 2, x + patch_width - patch_width // 2
-    y1, y2 = y - patch_height //2, y + patch_height - patch_height // 2
+    y1, y2 = y - patch_height // 2, y + patch_height - patch_height // 2
 
     return Crop(padding=padding).center(array, (x1, y1, x2, y2))
 
+
 def _check_image(image):
     if not isinstance(image, Image.Image):
-        raise ValueError('image must be PIL.Image object but %s.' % str(type(image)))
+        raise ValueError('image must be PIL.Image object but %s.' %
+                         str(type(image)))
+
 
 def _check_point(point, width, height):
     if not (isinstance(point, tuple) or isinstance(point, list)) or len(point) != 2:
-        raise ValueError('point must be 2 length tuple or list but %s' % str(point))
+        raise ValueError(
+            'point must be 2 length tuple or list but %s' % str(point))
     if not isinstance(point[0], int) or not isinstance(point[1], int) or not(0 <= point[0] < width) or not(0 <= point[1] < height):
         raise ValueError('invalid coordinate %s' % str(point))
 
+
 def _check_size(size, width, height):
     if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
-        raise ValueError('size must be 2 length tuple or list but %s' % str(size))
-    if not (isinstance(size[0], int) and isinstance(size[0], int)) or not (0 < size[0] <= width) or not( 0 < size[1] <= height):
-        raise ValueError('invalid size %s. limit (%s)' % (str(size), str((width*2, height*2))))
+        raise ValueError(
+            'size must be 2 length tuple or list but %s' % str(size))
+    if not (isinstance(size[0], int) and isinstance(size[0], int)) or not (0 < size[0] <= width) or not(0 < size[1] <= height):
+        raise ValueError('invalid size %s. limit (%s)' %
+                         (str(size), str((width * 2, height * 2))))
+
 
 def _check_interval(interval):
     if not (isinstance(interval, int)) or interval <= 0:
         raise ValueError('invalid interval %s' % str(interval))
 
+
 def _check_padding(padding):
     if padding not in Padding:
         raise ValueError('invalid padding %s' % str(padding))
 
+
 def _check_to_image(to_image):
     if not isinstance(to_image, bool):
-        raise ValueError('to_image must be bool object but %s' % str(type(to_image)))
+        raise ValueError('to_image must be bool object but %s' %
+                         str(type(to_image)))
 
 
 class PatchMaker:
     def __init__(self, patch_size, logger=Logger):
         if patch_size < 0:
-            raise ValueError('IllegalArgumentError: patch_size(%d) must be more than 0.')
+            raise ValueError(
+                'IllegalArgumentError: patch_size(%d) must be more than 0.')
         if patch_size % 2 != 0:
-            raise ValueError('IllegalArgumentError: patch_size(%d) must be an even number.' % patch_size)
+            raise ValueError(
+                'IllegalArgumentError: patch_size(%d) must be an even number.' % patch_size)
 
         self._patch_size = patch_size
         self._half_size = patch_size // 2

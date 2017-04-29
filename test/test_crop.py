@@ -3,6 +3,7 @@ import numpy as np
 from patch_maker import Crop
 from patch_maker import Padding
 
+
 class TestCrop(TestCase):
     def setUp(self):
         array1 = np.arange(20 * 20 * 1).reshape([20, 20]) % 255
