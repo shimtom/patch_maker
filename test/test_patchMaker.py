@@ -1,5 +1,6 @@
 from unittest import TestCase, skip
 from patch_maker import generate_patch, generate_patches
+from patch_maker import Padding
 import patch_maker as pm
 from PIL import Image
 import numpy as np
@@ -20,8 +21,8 @@ class TestPatchMaker(TestCase):
 
         self._sizes = [(1, 1), (20, 20), (1, 20), (20, 1)]
 
-        self._interval = [1, 20, 21, 400, 401]
-        self._paddings = [pm.VALID, pm.MIRROR, pm.SAME]
+        self._intervals = [1, 20, 21, 400, 401]
+        self._paddings = [Padding.VALID, Padding.MIRROR, Padding.SAME]
 
         self._failure_points = [(-1, -1), (-1, 0), (0, -1)]
         self._failure_points += [(21, 21), (21, 20), (20, 21)]
@@ -51,7 +52,7 @@ class TestPatchMaker(TestCase):
             for point in self._points:
                 for size in self._sizes:
                     for padding in self._paddings:
-                        if padding == pm.VALID:
+                        if padding == Padding.VALID:
                             answer = valid(
                                 point, size, image.width, image.height)
                         else:
@@ -117,7 +118,7 @@ class TestPatchMaker(TestCase):
         for image in self._test_images:
             for size in self._sizes:
                 for interval in self._intervals:
-                    for padding in [pm.SAME, pm.MIRROR]:
+                    for padding in [Padding.SAME, Padding.MIRROR]:
                         try:
                             for patch in generate_patches(image, size, interval, padding, True):
                                 self.assertEqual(size, patch.size)

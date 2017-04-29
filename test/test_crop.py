@@ -1,9 +1,9 @@
 from unittest import TestCase
-import patch_maker as pm
 import numpy as np
+from patch_maker import Crop
+from patch_maker import Padding
 
-
-class TestClip(TestCase):
+class TestCrop(TestCase):
     def setUp(self):
         array1 = np.arange(20 * 20 * 1).reshape([20, 20]) % 255
         array1 = array1.astype(np.uint8)
@@ -18,7 +18,7 @@ class TestClip(TestCase):
         self._failure_arrays = ['', None, 1, 1.0, np.array([])]
 
     def test_constructor(self):
-        paddings = [pm.MIRROR, pm.SAME, pm.VALID]
+        paddings = [Padding.MIRROR, Padding.SAME, Padding.VALID]
         arrays = self._test_array
         arrays += [np.array([], dtype=np.uint8).reshape([1, 0])]
         arrays += [np.array([], dtype=np.uint8).reshape([1, 1, 0])]
@@ -26,26 +26,26 @@ class TestClip(TestCase):
         for padding in paddings:
             for array in self._test_array:
                 try:
-                    pm.Clip(padding=padding)
+                    Crop(padding=padding)
                 except Exception as e:
                     self.fail(e)
 
         for padding in ['', 0, 0.1, None, 'mirror', 'same', 'valid']:
             for array in self._test_array:
                 with self.assertRaises(ValueError):
-                    pm.Clip(padding=padding)
+                    Crop(padding=padding)
 
     def test_holizontal(self):
         for array in self._test_array:
             w = array.shape[1]
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for point in self._points:
                 # valid
                 answer = make_holizontal_answer(valid(point, w), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.VALID, str(point), str(answer))
+                    Padding.VALID, str(point), str(answer))
                 try:
                     result = clip_valid.holizontal(array, point[0], point[1])
                 except Exception as e:
@@ -55,7 +55,7 @@ class TestClip(TestCase):
                 # mirror
                 answer = make_holizontal_answer(mirror(point, w), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.MIRROR, str(point), str(answer))
+                    Padding.MIRROR, str(point), str(answer))
                 try:
                     result = clip_mirror.holizontal(array, point[0], point[1])
                 except Exception as e:
@@ -65,7 +65,7 @@ class TestClip(TestCase):
                 # same
                 answer = make_holizontal_answer(same(point, w), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.SAME, str(point), str(answer))
+                    Padding.SAME, str(point), str(answer))
                 try:
                     result = clip_same.holizontal(array, point[0], point[1])
                 except Exception as e:
@@ -74,9 +74,9 @@ class TestClip(TestCase):
 
     def test_holizontal_failing(self):
         for array in self._test_array:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for point in self._failure_points:
                 with self.assertRaises(ValueError):
                     clip_valid.holizontal(array, point[0], point[1])
@@ -84,9 +84,9 @@ class TestClip(TestCase):
                     clip_same.holizontal(array, point[0], point[1])
 
         for array in self._failure_arrays:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for point in self._points:
                 with self.assertRaises(ValueError):
                     clip_valid.holizontal(array, point[0], point[1])
@@ -95,15 +95,15 @@ class TestClip(TestCase):
 
     def test_vertical(self):
         for array in self._test_array:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             h = array.shape[0]
             for point in self._points:
                 # VALID
                 answer = make_vertical_answer(valid(point, h), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.VALID, str(point), str(answer))
+                    Padding.VALID, str(point), str(answer))
                 try:
                     result = clip_valid.vertical(array, point[0], point[1])
                 except Exception as e:
@@ -113,7 +113,7 @@ class TestClip(TestCase):
                 # mirror
                 answer = make_vertical_answer(mirror(point, h), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.MIRROR, str(point), str(answer))
+                    Padding.MIRROR, str(point), str(answer))
                 try:
                     result = clip_mirror.vertical(array, point[0], point[1])
                 except Exception as e:
@@ -123,7 +123,7 @@ class TestClip(TestCase):
                 # same
                 answer = make_vertical_answer(same(point, h), array.shape)
                 message = 'padding: %s, point: %s, answer: %s' % (
-                    pm.SAME, str(point), str(answer))
+                    Padding.SAME, str(point), str(answer))
                 try:
                     result = clip_same.vertical(array, point[0], point[1])
                 except Exception as e:
@@ -132,9 +132,9 @@ class TestClip(TestCase):
 
     def test_vertical_failing(self):
         for array in self._test_array:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for point in self._failure_points:
                 with self.assertRaises(ValueError):
                     clip_valid.vertical(array, point[0], point[1])
@@ -142,9 +142,9 @@ class TestClip(TestCase):
                     clip_same.vertical(array, point[0], point[1])
 
         for array in self._failure_arrays:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for point in self._points:
                 with self.assertRaises(ValueError):
                     clip_valid.vertical(array, point[0], point[1])
@@ -155,9 +155,9 @@ class TestClip(TestCase):
         points_list = [(x, y) for x in self._points for y in self._points]
 
         for array in self._test_array:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             h, w = array.shape[:2]
             for ps in points_list:
                 # VALID
@@ -166,7 +166,7 @@ class TestClip(TestCase):
                 y1, y2 = valid(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
                 message = 'padding: %s, box: %s, answer: %s' % (
-                    pm.VALID, str(box), str(answer))
+                    Padding.VALID, str(box), str(answer))
                 try:
                     result = clip_valid.center(array, box)
                 except Exception as e:
@@ -178,7 +178,7 @@ class TestClip(TestCase):
                 y1, y2 = mirror(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
                 message = 'padding: %s, box: %s, answer: %s' % (
-                    pm.MIRROR, str(box), str(answer))
+                    Padding.MIRROR, str(box), str(answer))
                 try:
                     result = clip_mirror.center(array, box)
                 except Exception as e:
@@ -190,7 +190,7 @@ class TestClip(TestCase):
                 y1, y2 = same(ps[1], h)
                 answer = make_center_answer((x1, y1, x2, y2), array.shape)
                 message = 'padding: %s, box: %s, answer: %s' % (
-                    pm.SAME, str(box), str(answer))
+                    Padding.SAME, str(box), str(answer))
                 try:
                     result = clip_same.center(array, box)
                 except Exception as e:
@@ -206,9 +206,9 @@ class TestClip(TestCase):
                           for p in self._points for fp in self._failure_points]
 
         for array in self._test_array:
-            clip_valid = pm.Clip(padding=pm.VALID)
-            clip_mirror = pm.Clip(padding=pm.MIRROR)
-            clip_same = pm.Clip(padding=pm.SAME)
+            clip_valid = Crop(padding=Padding.VALID)
+            clip_mirror = Crop(padding=Padding.MIRROR)
+            clip_same = Crop(padding=Padding.SAME)
             for box in failure_boxes:
                 with self.assertRaises(ValueError):
                     clip_valid.center(array, box)
