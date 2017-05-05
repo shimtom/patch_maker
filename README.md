@@ -2,6 +2,10 @@
 
 画像から指定されたサイズのパッチを作成する。
 
+## Requirement
+* numpy package
+* pillow package
+
 ## Install
 ```
 $ python setup.py Install
@@ -18,6 +22,21 @@ $ cat files.txt | xargs sudo rm -rf
 ```
 
 ## Usage
+### Command
+```
+$ makepatch --image path_to_image_dir --save path_to_save_dir --size width height
+```
+```
+usage: makepatch [-h] --image IMAGE --save SAVE --size SIZE SIZE
+
+optional arguments:
+  -h, --help        show this help message and exit
+  --image IMAGE     set image directory
+  --save SAVE       set save directory
+  --size SIZE SIZE  set patch size (width, height)
+```
+
+### Library
 * `patch_maker.generate_patch`**`(image, point, size, padding=Padding.MIRROR, to_image=True)`**
   画像の指定された座標からパッチを切り出す.
   * **Parameters:**
