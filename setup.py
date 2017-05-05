@@ -6,7 +6,7 @@ from setuptools import find_packages
 
 
 def main():
-    description = 'patch_maker package'
+    description = 'patch maker package'
 
     setup(
         name='patch_maker',
@@ -19,9 +19,14 @@ def main():
         zip_safe=False,
         include_package_data=True,
         packages=find_packages(),
-        install_requires=[],
+        install_requires=['numpy'],
         tests_require=[],
         setup_requires=[],
+        entry_points={
+            'console_scripts': [
+                'crop = patch_maker.patch_maker:main'
+            ]
+        }
     )
 
 
