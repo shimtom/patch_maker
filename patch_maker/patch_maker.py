@@ -226,3 +226,49 @@ def _check_3d_size(size, width, height, depth):
     if not (0 < size[0] <= width and 0 < size[1] <= height and 0 < size[2] <= depth):
         raise ValueError('invalid size %s. limit (%s)' %
                          (str(size), str((width, height, depth))))
+
+def main():
+    import os
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--image', help='set image directory', required=True)
+    parser.add_argument('--save', help='set save directory', required=True)
+    parser.add_argument(
+        '--size', help='set patch size (width, height)', nargs=2, required=True)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--random', help='generate random translated patch', action='store_true')
+    group.add_argument('--no-random', help='don\'t generate random translated patch', action='store_false')
+    parser.set_defaults(random=False)
+    args = parser.parse_args()
+    print(args)
+    return
+    directory = args.image
+    save_dir = args.save
+    size = tuple(args.size)
+    random = args.random
+
+    if not os.path.isdir(directory):
+        print('no such a directory: %s' % str(directory))
+        return
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    image_files = []
+    for root, dirs, files in os.walk(directory):
+        image_files += list(files)
+    print('generate patch of %d images' % (len(image_files)))
+
+    for f in image_files:
+        image = Image.open(f)
+        patches = []
+        for patch in generate_patches(image, size, to_image=False):
+            patches += [patch]
+            if random:
+                patches += [np.fliplr(patch), np.flipud(patch)]
+                patches += [np.rot90(patch, k=np.random.randint(0, 4))]
+        name = '.'.join(f.split('.')[:-1])
+        np.array(patches).save(os.path.join(save_dir, name))
+        image.close()
+
+if __name__ == '__main__':
+    main()
