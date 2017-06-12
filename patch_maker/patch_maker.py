@@ -3,13 +3,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
-
 import numpy as np
 from PIL import Image
 from .crop import Padding
 from .crop import Crop
-Logger = logging.getLogger(__name__)
 
 
 def generate_patch(image, point, size, padding=Padding.MIRROR, to_image=True):
@@ -33,30 +30,34 @@ def generate_patch(image, point, size, padding=Padding.MIRROR, to_image=True):
         return patch
 
 
-def generate_patches(image, size, interval=1, padding=Padding.MIRROR, to_image=True):
+def generate_patches(image, size, strides=(1, 1), bounds=(None, None, None, None), padding=Padding.MIRROR, to_image=True):
     """画像からパッチを連続して切り出すジェネレータ.
     :param image: PIL.Image オブジェクト.元となる画像.
     :param size: (width, height). パッチのサイズ.
-    :param interval: パッチを切り出す間隔.
+    :param strides: パッチを切り出す間隔.
+    :param bounds: パッチを切り出す範囲.(sx, sy, ex, ey).
     :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.
     :param to_image: パッチをPIL.Image オブジェクトに変換するか.Falseの場合,numpy.ndarrayオブジェクト
     :yield: パッチ.
     """
     _check_image(image)
     _check_size(size, image.width, image.height)
-    _check_interval(interval)
+    _check_strides(strides, 2)
     _check_padding(padding)
     _check_to_image(to_image)
     width, height = image.size
-    array = np.array(image)
+    array = np.array(image).astype(np.uint8)
+    sx, sy, ex, ey = bounds if bounds is not None else (0, 0, width, height)
+    sx, sy = max(sx or 0, 0), max(sy or 0, 0)
+    ex, ey = min(ex or width, width), min(ey or height, height)
 
-    for i in range(0, width * height, interval):
-        x, y = i % width, i // width
-        patch = _generate_patch(array, (x, y), size, padding=padding)
-        if to_image:
-            yield Image.fromarray(patch)
-        else:
-            yield patch
+    for y in range(sy, ey, strides[0]):
+        for x in range(sx, ex, strides[1]):
+            patch = _generate_patch(array, (x, y), size, padding=padding)
+            if to_image:
+                yield Image.fromarray(patch)
+            else:
+                yield patch
 
 
 def generate_3d_patch(images, point, size, padding=Padding.MIRROR):
@@ -77,28 +78,28 @@ def generate_3d_patch(images, point, size, padding=Padding.MIRROR):
     return patch
 
 
-def generate_3d_patches(images, size, interval=1, padding=Padding.MIRROR):
+def generate_3d_patches(images, size, strides=(1, 1, 1), padding=Padding.MIRROR):
     """画像配列の指定された座標から3dパッチを切り出す.
     :param images: PIL.Image オブジェクトのリスト.元となる画像群.
     :param size: (width, height, depth). パッチのサイズ.
-    :param interval: パッチを切り出す間隔.
+    :param strides: パッチを切り出す間隔.
     :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.
     :return: パッチ. numpy.ndarrayオブジェクト.
     """
     _check_images(images)
     _check_3d_size(size, images[0].width, images[0].height, len(images))
-    _check_interval(interval)
+    _check_strides(strides, 3)
     _check_padding(padding)
 
     width = images[0].width
     height = images[0].height
     depth = len(images)
+    arrays = np.array(images)
 
-    for i in range(0, depth * height * width, interval):
-        x = i % (height * width) % width
-        y = i % (height * width) // width
-        z = i // (height * width)
-        yield _generate_3d_patch(images, (x, y, z), size, padding=padding)
+    for z in range(0, depth, strides[0]):
+        for y in range(0, height, strides[1]):
+            for x in range(0, width, strides[2]):
+                yield _generate_3d_patch(arrays, (x, y, z), size, padding=padding)
 
 
 def _generate_3d_patch(arrays, point, size, padding):
@@ -164,9 +165,12 @@ def _generate_patch(array, point, size, padding):
     return Crop(padding=padding).center(array, (x1, y1, x2, y2))
 
 
-def _check_interval(interval):
-    if not (isinstance(interval, int)) or interval <= 0:
-        raise ValueError('invalid interval %s' % str(interval))
+def _check_strides(strides, dims):
+    if not (isinstance(strides, tuple) or isinstance(strides, list)) or len(strides) != dims:
+        raise ValueError('invalid strides %s' % str(strides))
+    for stride in strides:
+        if not (isinstance(stride, int)) or stride < 0:
+            raise ValueError('invalid strides %s' % str(strides))
 
 
 def _check_padding(padding):
@@ -227,48 +231,45 @@ def _check_3d_size(size, width, height, depth):
         raise ValueError('invalid size %s. limit (%s)' %
                          (str(size), str((width, height, depth))))
 
+
 def main():
     import os
     import argparse
+    import sys
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image', help='set image directory', required=True)
-    parser.add_argument('--save', help='set save directory', required=True)
-    parser.add_argument(
-        '--size', help='set patch size (width, height)', nargs=2, required=True)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--random', help='generate random translated patch', action='store_true')
-    group.add_argument('--no-random', help='don\'t generate random translated patch', action='store_false')
-    parser.set_defaults(random=False)
+    parser.add_argument('images', type=str, nargs='+', help='image. support extensions:[.png|.jpg|.tif]')
+    parser.add_argument('size', type=int, nargs=2, help='patch size')
+    parser.add_argument('save', type=str, help='save directory.')
+    parser.add_argument('--strides', type=int, default=(1,1), nargs=2, help='strides' )
+    parser.add_argument('--bounds', type=int, default=(0, 0, None, None), nargs=4, help='bounds')
+
     args = parser.parse_args()
-    print(args)
-    return
-    directory = args.image
-    save_dir = args.save
+
+    files = args.images
+    size = args.size
+    directory = args.save
     size = tuple(args.size)
-    random = args.random
+    strides = tuple(args.strides)
+    bounds = tuple(args.bounds)
 
     if not os.path.isdir(directory):
-        print('no such a directory: %s' % str(directory))
+        print('invalid save directory: %s' % directory, file=sys.stderr)
         return
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
 
-    image_files = []
-    for root, dirs, files in os.walk(directory):
-        image_files += list(files)
-    print('generate patch of %d images' % (len(image_files)))
-
-    for f in image_files:
+    # ファイルごとにパッチを作成し保存
+    for f in files:
+        if not os.path.isfile(f) or not f.split('.')[-1] in ['png', 'jpg', 'tif']:
+            print('invalid file: %s' % f, file=sys.stderr)
+            continue
         image = Image.open(f)
-        patches = []
-        for patch in generate_patches(image, size, to_image=False):
-            patches += [patch]
-            if random:
-                patches += [np.fliplr(patch), np.flipud(patch)]
-                patches += [np.rot90(patch, k=np.random.randint(0, 4))]
-        name = '.'.join(f.split('.')[:-1])
-        np.array(patches).save(os.path.join(save_dir, name))
+        patches = [p for p in generate_patches(image, size, strides, bounds, to_image=False)]
+        patches = np.array(patches)
+        name = '.'.join(f.split('/')[-1].split('.')[:-1]) + '.npz'
+        np.save(os.path.join(directory, name), patches)
         image.close()
+        del patches
+
 
 if __name__ == '__main__':
     main()
