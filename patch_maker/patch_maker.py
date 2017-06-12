@@ -3,192 +3,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import gc
-import logging
-import os
-
 import numpy as np
-from PIL import Image, ImageOps
-from three_dimensional_image import ThreeDimensionalSlicer
+from PIL import Image
 from .crop import Padding
 from .crop import Crop
-Logger = logging.getLogger(__name__)
-
-
-class PatchMaker3D:
-    def __init__(self, patch_size, logger=Logger):
-        self._patch_maker = PatchMaker(patch_size)
-        self._logger = logger
-
-    def get_patch(self, images, x, y, z):
-        slicer = ThreeDimensionalSlicer(images)
-        return self._get_patch(slicer, x, y, z)
-
-    def get_patches(self, images):
-        slicer = ThreeDimensionalSlicer(images)
-
-        depth, height, width = slicer.size
-
-        self._check(depth, height, width)
-        slicer.optimize()
-
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-                    yield self._get_patch(slicer, x, y, z)
-
-    def get_patches_memory(self, images, save_dir, gray_scale=False):
-        slicer = ThreeDimensionalSlicer(images)
-        depth, height, width = slicer.size
-        self._check(depth, height, width)
-
-        if not os.path.isdir(save_dir):
-            self._logger.debug(' make dir %s' % save_dir)
-            os.makedirs(save_dir)
-
-        def convert_to_gray(image):
-            if gray_scale:
-                return ImageOps.grayscale(image)
-            return image
-
-        self._logger.debug('save xy slices')
-        for z, slice_xy in enumerate(slicer.get_slices_xy(convert_image=False)):
-            np.save(os.path.join(save_dir, 'xy-%d' % z),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_xy))))
-        slicer.close_xy()
-
-        self._logger.debug('save zx slices')
-        for y, slice_zx in enumerate(slicer.get_slices_zx(convert_image=False)):
-            np.save(os.path.join(save_dir, 'zx-%d' % y),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_zx))))
-        slicer.close_zx()
-
-        self._logger.debug('save yz slices')
-        for x, slice_yz in enumerate(slicer.get_slices_yz(convert_image=False)):
-            np.save(os.path.join(save_dir, 'yz-%d' % x),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_yz))))
-        slicer.close_yz()
-
-        slicer.close()
-
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-                    slice_xy, slice_zx, slice_yz = list(map(lambda name: np.load(os.path.join(save_dir, name)),
-                                                            ['xy-%d.npy' % z, 'zx-%d.npy' % y, 'yz-%d.npy' % x]))
-                    patch = self._make_patch(
-                        slice_xy[y][x], slice_zx[x][z], slice_yz[z][y])
-                    yield patch
-                    del slice_xy
-                    del slice_zx
-                    del slice_yz
-                    gc.collect()
-
-    def get_next_patches_memory(self, images, n, save_dir, gray_scale=False):
-        slicer = ThreeDimensionalSlicer(images)
-        depth, height, width = slicer.size
-        self._check(depth, height, width)
-
-        if not os.path.isdir(save_dir):
-            self._logger.debug(' make dir %s' % save_dir)
-            os.makedirs(save_dir)
-
-        def convert_to_gray(image):
-            if gray_scale:
-                return ImageOps.grayscale(image)
-            return image
-
-        self._logger.debug('save xy slices')
-        for z, slice_xy in enumerate(slicer.get_slices_xy(convert_image=False)):
-            np.save(os.path.join(save_dir, 'xy-%d' % z),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_xy))))
-        slicer.close_xy()
-
-        self._logger.debug('save zx slices')
-        for y, slice_zx in enumerate(slicer.get_slices_zx(convert_image=False)):
-            np.save(os.path.join(save_dir, 'zx-%d' % y),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_zx))))
-        slicer.close_zx()
-
-        self._logger.debug('save yz slices')
-        for x, slice_yz in enumerate(slicer.get_slices_yz(convert_image=False)):
-            np.save(os.path.join(save_dir, 'yz-%d' % x),
-                    np.array(self._patch_maker.get_patches(convert_to_gray(slice_yz))))
-        slicer.close_yz()
-
-        slicer.close()
-
-        patches = []
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-                    if len(patches) >= n:
-                        yield patches
-                        patches = []
-                    slice_xy, slice_zx, slice_yz = list(map(lambda name: np.load(os.path.join(save_dir, name)),
-                                                            ['xy-%d.npy' % z, 'zx-%d.npy' % y, 'yz-%d.npy' % x]))
-                    patches.append(self._make_patch(
-                        slice_xy[y][x], slice_zx[x][z], slice_yz[z][y]))
-                    del slice_xy
-                    del slice_zx
-                    del slice_yz
-                    gc.collect()
-
-        yield patches
-
-    def get_next_patches(self, images, n):
-        slicer = ThreeDimensionalSlicer(images)
-
-        depth, height, width = slicer.size
-
-        self._check(depth, height, width)
-        slicer.optimize()
-
-        patches = []
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-                    if len(patches) >= n:
-                        yield patches
-                        patches = []
-                    patches.append(self._get_patch(slicer, x, y, z))
-
-        yield patches
-
-    def _check(self, depth, height, width):
-        half_size = self._patch_maker.patch_size // 2
-        if width < half_size or height < half_size or depth < half_size:
-            raise ValueError('IllegalArgumentError: '
-                             'depth(%d), height(%d) and width(%d) must be more than twice as big as patch_size(%d).' % (
-                                 depth, height, width, self._patch_maker.patch_size))
-
-    def _make_patch(self, patch_xy, patch_zx, patch_yz):
-        patch = np.array([patch_xy, patch_zx, patch_yz])
-        patch = np.transpose(patch, axes=(1, 2, 0, 3))
-        patch = patch.reshape(
-            [self._patch_maker.patch_size, self._patch_maker.patch_size, -1])
-        return patch
-
-    def _get_patch(self, slicer, x, y, z):
-        depth, height, width = slicer.size
-
-        if x < 0 or x > width or y < 0 or y > height or z < 0 or z > depth:
-            raise ValueError('IndexOutOfBoundsError: (x, y, z)=(%d,%d,%d) must be within (%d, %d, %d)' % (
-                x, y, z, width, height, depth))
-
-        slice_xy, slice_zx, slice_yz = slicer.get_slice(
-            x, y, z, immediately=True, convert_image=False)
-        patch_xy = self._patch_maker.get_patch(slice_xy, x, y)
-        patch_zx = self._patch_maker.get_patch(slice_zx, z, x)
-        patch_yz = self._patch_maker.get_patch(slice_yz, y, z)
-
-        return self._make_patch(patch_xy, patch_zx, patch_yz)
 
 
 def generate_patch(image, point, size, padding=Padding.MIRROR, to_image=True):
     """画像の指定された座標からパッチを切り出す.
-    parameters:
-    returns:
+    :param image: PIL.Image オブジェクト.元となる画像.
+    :param point: (x, y). パッチを切り出す座標.
+    :param size: (width, height). パッチのサイズ.
+    :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.    :param to_image: パッチをPIL.Image オブジェクトに変換するか.Falseの場合,numpy.ndarrayオブジェクト
+    :yield: パッチ.
     """
     _check_image(image)
     _check_point(point, image.width, image.height)
@@ -203,30 +30,128 @@ def generate_patch(image, point, size, padding=Padding.MIRROR, to_image=True):
         return patch
 
 
-def generate_patches(image, size, interval=1, padding=Padding.MIRROR, to_image=True):
+def generate_patches(image, size, strides=(1, 1), bounds=(None, None, None, None), padding=Padding.MIRROR, to_image=True):
     """画像からパッチを連続して切り出すジェネレータ.
     :param image: PIL.Image オブジェクト.元となる画像.
     :param size: (width, height). パッチのサイズ.
-    :param interval: パッチを切り出す間隔
-    :param padding: 'MIRROR','SAME','VALID'のどれか.パッチのパディングの仕方.
+    :param strides: パッチを切り出す間隔.
+    :param bounds: パッチを切り出す範囲.(sx, sy, ex, ey).
+    :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.
     :param to_image: パッチをPIL.Image オブジェクトに変換するか.Falseの場合,numpy.ndarrayオブジェクト
     :yield: パッチ.
     """
     _check_image(image)
     _check_size(size, image.width, image.height)
-    _check_interval(interval)
+    _check_strides(strides, 2)
     _check_padding(padding)
     _check_to_image(to_image)
     width, height = image.size
-    array = np.array(image)
+    array = np.array(image).astype(np.uint8)
+    sx, sy, ex, ey = bounds if bounds is not None else (0, 0, width, height)
+    sx, sy = max(sx or 0, 0), max(sy or 0, 0)
+    ex, ey = min(ex or width, width), min(ey or height, height)
 
-    for i in range(0, width * height, interval):
-        x, y = i % width, i // width
-        patch = _generate_patch(array, (x, y), size, padding=padding)
-        if to_image:
-            yield Image.fromarray(patch)
-        else:
-            yield patch
+    for y in range(sy, ey, strides[0]):
+        for x in range(sx, ex, strides[1]):
+            patch = _generate_patch(array, (x, y), size, padding=padding)
+            if to_image:
+                yield Image.fromarray(patch)
+            else:
+                yield patch
+
+
+def generate_3d_patch(images, point, size, padding=Padding.MIRROR):
+    """画像配列の指定された座標から3dパッチを切り出す.
+    :param images: PIL.Image オブジェクトのリスト.元となる画像群.
+    :param point: (x, y, z). パッチの中心となる座標.
+    :param size: (width, height, depth). パッチのサイズ.
+    :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.
+    :return: パッチ. numpy.ndarrayオブジェクト.
+    """
+    _check_images(images)
+    width, height, depth = images[0].width, images[0].height, len(images)
+    _check_3d_point(point, width, height, depth)
+    _check_3d_size(size, width, height, depth)
+    _check_padding(padding)
+
+    patch = _generate_3d_patch(np.array(images), point, size, padding=padding)
+    return patch
+
+
+def generate_3d_patches(images, size, strides=(1, 1, 1), padding=Padding.MIRROR):
+    """画像配列の指定された座標から3dパッチを切り出す.
+    :param images: PIL.Image オブジェクトのリスト.元となる画像群.
+    :param size: (width, height, depth). パッチのサイズ.
+    :param strides: パッチを切り出す間隔.
+    :param padding: Padding.MIRROR, Padding.SAME, Padding.VALIDのどれか. パッチのパディングの仕方.
+    :return: パッチ. numpy.ndarrayオブジェクト.
+    """
+    _check_images(images)
+    _check_3d_size(size, images[0].width, images[0].height, len(images))
+    _check_strides(strides, 3)
+    _check_padding(padding)
+
+    width = images[0].width
+    height = images[0].height
+    depth = len(images)
+    arrays = np.array(images)
+
+    for z in range(0, depth, strides[0]):
+        for y in range(0, height, strides[1]):
+            for x in range(0, width, strides[2]):
+                yield _generate_3d_patch(arrays, (x, y, z), size, padding=padding)
+
+
+def _generate_3d_patch(arrays, point, size, padding):
+    def reshape(array):
+        h, w = array.shape[:2]
+        return array.reshape((h, w, -1))
+
+    patch_xy = _generate_patch_xy(arrays, point, size, padding)
+    patch_yz = _generate_patch_xy(arrays, point, size, padding)
+    patch_zx = _generate_patch_zx(arrays, point, size, padding)
+
+    patch_xy = reshape(patch_xy)
+    patch_yz = reshape(patch_yz)
+    patch_zx = reshape(patch_zx)
+
+    return np.concatenate((patch_xy, patch_yz, patch_zx), axis=-1)
+
+
+def _generate_patch_xy(arrays, point, size, padding):
+    z, y, x = point
+    patch_depth, patch_height, patch_width = size
+    x1, x2 = x - patch_width // 2, x + patch_width - patch_width // 2
+    y1, y2 = y - patch_height // 2, y + patch_height - patch_height // 2
+
+    patch = Crop(padding).center(arrays[z, :, :], (x1, y1, x2, y2))
+
+    return patch
+
+
+def _generate_patch_yz(arrays, point, size, padding):
+    z, y, x = point
+    patch_depth, patch_height, patch_width = size
+    y1, y2 = y - patch_height // 2, y + patch_height - patch_height // 2
+    z1, z2 = z - patch_depth // 2, z + patch_depth - patch_depth // 2
+
+    patch = Crop(padding).center(arrays[:, :, x], (y1, z1, y2, z2))
+
+    return patch
+
+
+def _generate_patch_zx(arrays, point, size, padding):
+    z, y, x = point
+    patch_depth, patch_height, patch_width = size
+    z1, z2 = z - patch_depth // 2, z + patch_depth - patch_depth // 2
+    x1, x2 = x - patch_width // 2, x + patch_width - patch_width // 2
+
+    axes = (1, 0) + \
+        tuple([i + 2 for i in range(len(arrays[:, y, :].shape) - 2)])
+    patch = Crop(padding).center(np.transpose(
+        arrays[:, y, :], axes), (z1, x1, z2, x2))
+
+    return patch
 
 
 def _generate_patch(array, point, size, padding):
@@ -238,6 +163,25 @@ def _generate_patch(array, point, size, padding):
     y1, y2 = y - patch_height // 2, y + patch_height - patch_height // 2
 
     return Crop(padding=padding).center(array, (x1, y1, x2, y2))
+
+
+def _check_strides(strides, dims):
+    if not (isinstance(strides, tuple) or isinstance(strides, list)) or len(strides) != dims:
+        raise ValueError('invalid strides %s' % str(strides))
+    for stride in strides:
+        if not (isinstance(stride, int)) or stride < 0:
+            raise ValueError('invalid strides %s' % str(strides))
+
+
+def _check_padding(padding):
+    if padding not in Padding:
+        raise ValueError('invalid padding %s' % str(padding))
+
+
+def _check_to_image(to_image):
+    if not isinstance(to_image, bool):
+        raise ValueError('to_image must be bool object but %s' %
+                         str(type(to_image)))
 
 
 def _check_image(image):
@@ -263,274 +207,69 @@ def _check_size(size, width, height):
                          (str(size), str((width * 2, height * 2))))
 
 
-def _check_interval(interval):
-    if not (isinstance(interval, int)) or interval <= 0:
-        raise ValueError('invalid interval %s' % str(interval))
+def _check_images(images):
+    w, h = images[0].size
+    for image in images:
+        _check_image(image)
+        if (w, h) != image.size:
+            raise ValueError('invalid images')
 
 
-def _check_padding(padding):
-    if padding not in Padding:
-        raise ValueError('invalid padding %s' % str(padding))
+def _check_3d_point(point, width, height, depth):
+    if not (isinstance(point, tuple) or isinstance(point, list)) or len(point) != 3:
+        raise ValueError(
+            'point must be 3 length tuple or list but %s' % str(point))
+    if not (0 <= point[0] < width and 0 <= point[1] < height and 0 <= point[2] < depth):
+        raise ValueError('invalid coordinate %s' % str(point))
 
 
-def _check_to_image(to_image):
-    if not isinstance(to_image, bool):
-        raise ValueError('to_image must be bool object but %s' %
-                         str(type(to_image)))
-
-
-class PatchMaker:
-    def __init__(self, patch_size, logger=Logger):
-        if patch_size < 0:
-            raise ValueError(
-                'IllegalArgumentError: patch_size(%d) must be more than 0.')
-        if patch_size % 2 != 0:
-            raise ValueError(
-                'IllegalArgumentError: patch_size(%d) must be an even number.' % patch_size)
-
-        self._patch_size = patch_size
-        self._half_size = patch_size // 2
-        self._logger = logger
-
-    @property
-    def patch_size(self):
-        """パッチサイズを取得する。
-
-        :return: パッチサイズ.
-        """
-        return self._patch_size
-
-    def generate_patches(self, image, padding='MIRROR'):
-        width, height = image.size
-
-        if width < self.patch_size // 2 or height < self.patch_size // 2:
-            raise ValueError(
-                'IllegalArgumentError: patch_size(%d) is more than twice as big as height(%d) and width(%d).' % (
-                    self.patch_size, height, width))
-
-        array = _convert_to_array(image)
-
-        for y in range(height):
-            for x in range(width):
-                yield self._get_patch(array, x, y)
-
-    def generate_next_patches(self, image, n):
-        width, height = image.size
-        if width < self.patch_size // 2 or height < self.patch_size // 2:
-            raise ValueError(
-                'IllegalArgumentError: patch_size(%d) is more than twice as big as height(%d) and width(%d).' % (
-                    self.patch_size, height, width))
-
-        array = _convert_to_array(image)
-
-        patches = []
-        for y in range(height):
-            for x in range(width):
-                if len(patches) >= n:
-                    yield patches
-                    patches = []
-                patches.append(self._get_patch(array, x, y))
-
-        yield patches
-
-    def get_patch(self, image, x, y):
-        return self._get_patch(_convert_to_array(image), x, y)
-
-    def get_flipped_patch(self, image, x, y, direction='lr'):
-        if direction == 'lr':
-            return np.fliplr(self.get_patch(image, x, y))
-        elif direction == 'ud':
-            return np.flipud(self.get_patch(image, x, y))
-
-    def get_rotated_patch(self, image, x, y, direction='r'):
-        if direction == 'r':
-            np.fliplr(np.transpose(self.get_patch(image, x, y), axes=(1, 0, 2)))
-        elif direction == 'l':
-            np.flipud(np.transpose(self.get_patch(image, x, y), axes=(1, 0, 2)))
-
-    def get_n_patches(self, image, x, y, n):
-        width, height = image.size
-
-        if n <= 0:
-            return []
-        array = _convert_to_array(image)
-        patches = []
-        for _y in range(y, height):
-            for _x in range(x, width):
-                if len(patches) == n:
-                    break
-                patches.append(self.get_patch(array, _x, _y))
-
-        return patches
-
-    def flip_left_right(self, image):
-        array = _convert_to_array(image)
-        return np.fliplr(array)
-
-    def _get_patch(self, array, x, y, padding='MIRROR'):
-        height, width = array.shape[:2]
-        if width < self.patch_size // 2 or height < self.patch_size // 2:
-            raise ValueError(
-                'IllegalArgumentError: patch_size(%d) is more than twice as big as height(%d) and width(%d).' % (
-                    self.patch_size, height, width))
-        xlim = [x - self._half_size, x + self._half_size]
-        ylim = [y - self._half_size, y + self._half_size]
-
-        left = xlim[0] < 0
-        right = width <= xlim[1]
-        xcenter = not left and not right
-        up = ylim[0] < 0
-        down = height <= ylim[1]
-        ycenter = not up and not down
-
-        # center
-        if xcenter and ycenter:
-            return self._check(array[ylim[0]:ylim[1], xlim[0]:xlim[1]], x, y, key='center')
-        # left
-        if left and ycenter:
-            xlim[0] = self._half_size - x
-
-            l = array[ylim[0]:ylim[1], xlim[0] - 1::-1]
-            r = array[ylim[0]:ylim[1], :xlim[1]]
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='left center')
-        # right
-        if right and ycenter:
-            xlim[1] = width - (x + self._half_size - width)
-            l = array[ylim[0]:ylim[1], xlim[0]:]
-            r = array[ylim[0]:ylim[1], width - 1:xlim[1] - 1:-1]
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='right center')
-        # up
-        if up and xcenter:
-            ylim[0] = self._half_size - y
-            u = array[ylim[0] - 1::-1, xlim[0]:xlim[1]]
-            d = array[:ylim[1], xlim[0]:xlim[1]]
-            return self._check(np.concatenate((u, d)), x, y, key='up center')
-        # down
-        if down and xcenter:
-            ylim[1] = height - (y + self._half_size - height)
-            u = array[ylim[0]:, xlim[0]:xlim[1]]
-            d = array[height - 1:ylim[1] - 1:-1, xlim[0]:xlim[1]]
-            return self._check(np.concatenate((u, d)), x, y, key='down center')
-        # left up
-        if left and up:
-            xlim[0] = self._half_size - x
-            ylim[0] = self._half_size - y
-
-            ul = array[ylim[0] - 1::-1, xlim[0] - 1::-1]
-            dl = array[:ylim[1], xlim[0] - 1::-1]
-
-            ur = array[ylim[0] - 1::-1, :xlim[1]]
-            dr = array[:ylim[1], :xlim[1]]
-
-            l = np.concatenate((ul, dl))
-            r = np.concatenate((ur, dr))
-
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='left up')
-        # left down
-        if left and down:
-            xlim[0] = self._half_size - x
-            ylim[1] = height - (y + self._half_size - height)
-            ul = array[ylim[0]:, xlim[0] - 1::-1]
-            dl = array[height - 1:ylim[1] - 1:-1, xlim[0] - 1::-1]
-
-            ur = array[ylim[0]:, :xlim[1]]
-            dr = array[height - 1:ylim[1] - 1:-1, :xlim[1]]
-            l = np.concatenate((ul, dl))
-            r = np.concatenate((ur, dr))
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='left down')
-
-        # right up
-        if right and up:
-            xlim[1] = width - (x + self._half_size - width)  # ok
-            ylim[0] = self._half_size - y
-            ul = array[ylim[0] - 1::-1, xlim[0]:]
-            dl = array[:ylim[1], xlim[0]:]  # ok
-
-            ur = array[ylim[0] - 1::-1, width - 1:xlim[1] - 1:-1]
-            dr = array[:ylim[1], width - 1:xlim[1] - 1:-1]
-            l = np.concatenate((ul, dl))
-            r = np.concatenate((ur, dr))
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='right up')
-
-        # right down
-        if right and down:
-            xlim[1] = width - (x + self._half_size - width)
-            ylim[1] = height - (y + self._half_size - height)
-            ul = array[ylim[0]:, xlim[0]:]
-            dl = array[height - 1:ylim[1] - 1:-1, xlim[0]:]
-
-            ur = array[ylim[0]:, width - 1:xlim[1] - 1:-1]
-            dr = array[height - 1:ylim[1] - 1:-1, width - 1:xlim[1] - 1:-1]
-            l = np.concatenate((ul, dl))
-            r = np.concatenate((ur, dr))
-            return self._check(np.concatenate((l, r), axis=1), x, y, key='right down')
-
-    def _check(self, array, x, y, key=''):
-        shape = array.shape
-        if shape[0] != self._patch_size or shape[1] != self._patch_size:
-            raise ValueError(
-                '%s (%d, %d) array shape must be (%d, %d, ...) but %s' % (
-                    key, x, y, self._patch_size, self._patch_size, str(shape)))
-        return array
-
-
-def _convert_to_array(image):
-    image_array = np.array(image)
-    if len(image_array.shape) == 2:
-        height, width = image_array.shape
-        image_array = image_array.reshape((height, width, 1))
-    return image_array
-
-
-def _convert_to_image(array):
-    if array.shape[2] == 1:
-        height, width, _ = array.shape
-        array = array.reshape((height, width))
-    return Image.fromarray(array)
+def _check_3d_size(size, width, height, depth):
+    if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 3:
+        raise ValueError(
+            'size must be 3 length tuple or list but %s' % str(size))
+    if not (0 < size[0] <= width and 0 < size[1] <= height and 0 < size[2] <= depth):
+        raise ValueError('invalid size %s. limit (%s)' %
+                         (str(size), str((width, height, depth))))
 
 
 def main():
     import os
     import argparse
+    import sys
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image', help='set image directory', required=True)
-    parser.add_argument('--save', help='set save directory', required=True)
-    parser.add_argument(
-        '--size', help='set patch size (width, height)', nargs=2, required=True)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--random', help='generate random translated patch', action='store_true')
-    group.add_argument('--no-random', help='don\'t generate random translated patch', action='store_false')
-    parser.set_defaults(random=False)
+    parser.add_argument('images', type=str, nargs='+', help='image. support extensions:[.png|.jpg|.tif]')
+    parser.add_argument('size', type=int, nargs=2, help='patch size')
+    parser.add_argument('save', type=str, help='save directory.')
+    parser.add_argument('--strides', type=int, default=(1,1), nargs=2, help='strides' )
+    parser.add_argument('--bounds', type=int, default=(0, 0, None, None), nargs=4, help='bounds')
+
     args = parser.parse_args()
-    print(args)
-    return
-    directory = args.image
-    save_dir = args.save
+
+    files = args.images
+    size = args.size
+    directory = args.save
     size = tuple(args.size)
-    random = args.random
+    strides = tuple(args.strides)
+    bounds = tuple(args.bounds)
 
     if not os.path.isdir(directory):
-        print('no such a directory: %s' % str(directory))
+        print('invalid save directory: %s' % directory, file=sys.stderr)
         return
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
 
-    image_files = []
-    for root, dirs, files in os.walk(directory):
-        image_files += list(files)
-    print('generate patch of %d images' % (len(image_files)))
-
-    for f in image_files:
+    # ファイルごとにパッチを作成し保存
+    for f in files:
+        if not os.path.isfile(f) or not f.split('.')[-1] in ['png', 'jpg', 'tif']:
+            print('invalid file: %s' % f, file=sys.stderr)
+            continue
         image = Image.open(f)
-        patches = []
-        for patch in generate_patches(image, size, to_image=False):
-            patches += [patch]
-            if random:
-                patches += [np.fliplr(patch), np.flipud(patch)]
-                patches += [np.rot90(patch, k=np.random.randint(0, 4))]
-        name = '.'.join(f.split('.')[:-1])
-        np.array(patches).save(os.path.join(save_dir, name))
+        patches = [p for p in generate_patches(image, size, strides, bounds, to_image=False)]
+        patches = np.array(patches)
+        name = '.'.join(f.split('/')[-1].split('.')[:-1]) + '.npz'
+        np.save(os.path.join(directory, name), patches)
         image.close()
+        del patches
+
 
 if __name__ == '__main__':
     main()
