@@ -169,7 +169,7 @@ def _check_strides(strides, dims):
     if not (isinstance(strides, tuple) or isinstance(strides, list)) or len(strides) != dims:
         raise ValueError('invalid strides %s' % str(strides))
     for stride in strides:
-        if not (isinstance(stride, int)) or stride < 0:
+        if stride < 0:
             raise ValueError('invalid strides %s' % str(strides))
 
 
@@ -194,15 +194,15 @@ def _check_point(point, width, height):
     if not (isinstance(point, tuple) or isinstance(point, list)) or len(point) != 2:
         raise ValueError(
             'point must be 2 length tuple or list but %s' % str(point))
-    if not isinstance(point[0], int) or not isinstance(point[1], int) or not(0 <= point[0] < width) or not(0 <= point[1] < height):
-        raise ValueError('invalid coordinate %s' % str(point))
+    if not(0 <= point[0] < width) or not(0 <= point[1] < height):
+        raise ValueError('invalid coordinate %s. (width, height)=(%d, %d)' % (str(point), width, height))
 
 
 def _check_size(size, width, height):
     if not (isinstance(size, tuple) or isinstance(size, list)) or len(size) != 2:
         raise ValueError(
             'size must be 2 length tuple or list but %s' % str(size))
-    if not (isinstance(size[0], int) and isinstance(size[0], int)) or not (0 < size[0] <= width) or not(0 < size[1] <= height):
+    if not (0 < size[0] <= width) or not(0 < size[1] <= height):
         raise ValueError('invalid size %s. limit (%s)' %
                          (str(size), str((width * 2, height * 2))))
 

@@ -20,7 +20,7 @@ class TestPatchMaker(TestCase):
 
         self._sizes = [(1, 1), (20, 20), (1, 20), (20, 1)]
 
-        self._intervals = [1, 20, 21, 400, 401]
+        self._strides = [(1, 1), (20, 20), (21, 21)]
         self._paddings = [Padding.VALID, Padding.MIRROR, Padding.SAME]
 
         self._failure_points = [(-1, -1), (-1, 0), (0, -1)]
@@ -116,28 +116,26 @@ class TestPatchMaker(TestCase):
 
         for image in self._test_images:
             for size in self._sizes:
-                for interval in self._intervals:
+                for strides in self._strides:
                     for padding in [Padding.SAME, Padding.MIRROR]:
                         try:
-                            for patch in generate_patches(image, size, interval, padding, True):
+                            for patch in generate_patches(image, size, strides, padding=padding, to_image=True):
                                 self.assertEqual(size, patch.size)
                                 self.assertEqual(image.mode, patch.mode)
                                 # TODO: ピクセルごとに値の確認
                         except Exception as e:
                             self.fail('%s\n' % (str(e)))
-
     @skip
     def test_generate_patches_failing(self):
-        failure_intervals = [-1, 0.1, 0]
+        failure_strides = [-1, 0.1, 0]
         failure_paddings = ['', None, 0, 0.1]
-        intervals = [1, 20, 21, 400, 401]
         # check size
         for size in self._failure_sizes:
             for padding in self._paddings:
-                for interval in intervals:
+                for strides in self._strides:
                     for image in self._test_images:
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
                                 with self.assertRaises(ValueError, "invalid size %s" % str(size)):
@@ -145,7 +143,7 @@ class TestPatchMaker(TestCase):
                             except StopIteration:
                                 break
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
                                 with self.assertRaises(ValueError, "invalid size %s" % str(size)):
@@ -153,35 +151,35 @@ class TestPatchMaker(TestCase):
                             except StopIteration:
                                 break
 
-        # check interval
+        # check strides
         for size in self._sizes:
-            for interval in failure_intervals:
+            for strides in failure_strides:
                 for padding in self._paddings:
                     for image in self._test_images:
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
-                                with self.assertRaises(ValueError, "invalid interval %s" % str(interval)):
+                                with self.assertRaises(ValueError, "invalid strides %s" % str(strides)):
                                     next(gnenerator)
                             except StopIteration:
                                 break
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
-                                with self.assertRaises(ValueError, "invalid interval %s" % str(interval)):
+                                with self.assertRaises(ValueError, "invalid strides %s" % str(strides)):
                                     next(gnenerator)
                             except StopIteration:
                                 break
 
         # check padding
         for size in self._sizes:
-            for interval in intervals:
+            for strides in self._strides:
                 for padding in failure_paddings:
                     for image in self._test_images:
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
                                 with self.assertRaises(ValueError, "invalid padding %s" % str(padding)):
@@ -189,7 +187,7 @@ class TestPatchMaker(TestCase):
                             except StopIteration:
                                 break
                         gnenerator = generate_patches(
-                            image, size, interval, padding, to_image=True)
+                            image, size, strides, padding=padding, to_image=True)
                         while True:
                             try:
                                 with self.assertRaises(ValueError, "invalid padding %s" % str(padding)):
