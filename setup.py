@@ -10,7 +10,7 @@ def main():
 
     setup(
         name='patch_maker',
-        version='0.3.0',
+        version='0.3.1',
         author='shimtom',
         author_email='ii00zero1230@gmail.com',
         url='',
