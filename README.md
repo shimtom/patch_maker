@@ -8,17 +8,12 @@
 
 ## Install
 ```
-$ python setup.py Install
+$ pip3 install -e .
 ```
 
 ## Uninstall
 ```
-$ pip uninstall patch_maker
-```
-or
-```
-$ python setup.py install --record files.txt
-$ cat files.txt | xargs sudo rm -rf
+$ pip3 uninstall patch_maker
 ```
 
 ## Usage
@@ -27,13 +22,21 @@ $ cat files.txt | xargs sudo rm -rf
 $ makepatch --image path_to_image_dir --save path_to_save_dir --size width height
 ```
 ```
-usage: makepatch [-h] --image IMAGE --save SAVE --size SIZE SIZE
+usage: makepatch [-h] [--strides STRIDES STRIDES]
+                 [--bounds BOUNDS BOUNDS BOUNDS BOUNDS]
+                 images [images ...] size size save
+
+positional arguments:
+  images                image. support extensions:[.png|.jpg|.tif]
+  size                  patch size
+  save                  save directory.
 
 optional arguments:
-  -h, --help        show this help message and exit
-  --image IMAGE     set image directory
-  --save SAVE       set save directory
-  --size SIZE SIZE  set patch size (width, height)
+  -h, --help            show this help message and exit
+  --strides STRIDES STRIDES
+                        strides
+  --bounds BOUNDS BOUNDS BOUNDS BOUNDS
+                        bounds
 ```
 
 ### Library

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from unittest import TestCase, skip
 from patch_maker import generate_patch, generate_patches
 from patch_maker import Padding
